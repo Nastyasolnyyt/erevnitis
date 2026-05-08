@@ -1,0 +1,6 @@
+#!/home/nastya/Downloads/Erevnitis_SRE_Panel_FULL/erevnitis/venv/bin/python3.12
+import sys
+from rsa.cli import keygen
+if __name__ == '__main__':
+    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    sys.exit(keygen())
