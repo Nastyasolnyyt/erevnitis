@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+{% block title %}Инциденты — Erevnitis{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Инциденты</h1>
+    <p class="page-subtitle">Управление инцидентами инфраструктуры</p>
+  </div>
+  <div class="flex gap-2">
+    <a id="export-btn" href="/api/v1/incidents/export/csv" class="btn btn-ghost btn-sm">
+      <i class="bi bi-download"></i> CSV
+    </a>
+    <button class="btn btn-ghost btn-sm" onclick="loadIncidents()">
+      <i class="bi bi-arrow-clockwise"></i>
+    </button>
+    <button class="btn btn-primary btn-sm role-write" onclick="Modal.open('modal-create')">
+      <i class="bi bi-plus-lg"></i> Новый инцидент
+    </button>
+  </div>
+</div>
+
+<!-- Stats row -->
+<div class="stat-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:1.25rem" id="inc-stats">
+  <div class="card stat-card" style="padding:1rem 1.25rem">
+    <div class="stat-value" id="s-total" style="font-size:1.625rem">—</div>
+    <div class="stat-label">Всего</div>
+  </div>
+  <div class="card stat-card" style="padding:1rem 1.25rem">
+    <div class="stat-value" id="s-crit" style="font-size:1.625rem;color:#dc2626">—</div>
+    <div class="stat-label">Критичных</div>
+  </div>
+  <div class="card stat-card" style="padding:1rem 1.25rem">
+    <div class="stat-value" id="s-op" style="font-size:1.625rem;color:#2563eb">—</div>
+    <div class="stat-label">Открытых</div>
+  </div>
+  <div class="card stat-card" style="padding:1rem 1.25rem">
+    <div class="stat-value" id="s-inv" style="font-size:1.625rem;color:#c2410c">—</div>
+    <div class="stat-label">Расследуется</div>
+  </div>
+  <div class="card stat-card" style="padding:1rem 1.25rem">
+    <div class="stat-value" id="s-res" style="font-size:1.625rem;color:#15803d">—</div>
+    <div class="stat-label">Решено</div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="card" style="margin-bottom:1.25rem">
+  <div class="card-body" style="padding:.875rem 1.25rem">
+    <div class="flex gap-3 items-center flex-wrap">
+      <div class="search-wrap">
+        <i class="bi bi-search"></i>
+        <input id="search" class="form-control search-input" placeholder="Поиск по названию..."
+               oninput="filterIncidents()">
+      </div>
+      <div class="filter-bar">
+        <button class="filter-btn active" onclick="setFilter(this,'all')">Все</button>
+        <button class="filter-btn" onclick="setFilter(this,'open')">Открытые</button>
+        <button class="filter-btn" onclick="setFilter(this,'investigating')">Расследование</button>
+        <button class="filter-btn" onclick="setFilter(this,'resolved')">Решённые</button>
+      </div>
+      <div class="filter-bar" style="margin-left:auto">
+        <button class="filter-btn active sev-btn" onclick="setSev(this,'all')">Все</button>
+        <button class="filter-btn sev-btn" onclick="setSev(this,'critical')">Критичные</button>
+        <button class="filter-btn sev-btn" onclick="setSev(this,'high')">Высокие</button>
+        <button class="filter-btn sev-btn" onclick="setSev(this,'medium')">Средние</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="card">
+  <div class="table-wrapper">
+    <table class="ev-table">
+      <thead>
+        <tr>
+          <th style="width:48px">#</th>
+          <th>Название</th>
+          <th>Критичность</th>
+          <th>Статус</th>
+          <th>Сервер</th>
+          <th>Создан</th>
+          <th>MTTR</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="inc-tbody">
+        <tr class="loading-row"><td colspan="8">
+          <div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:2rem">
+            <div class="spinner"></div> Загрузка...
+          </div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal: Create -->
+<div class="modal-overlay" id="modal-create">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Новый инцидент</h3>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="Modal.close('modal-create')">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Название *</label>
+        <input id="c-title" class="form-control" placeholder="Краткое описание проблемы">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <div class="form-group">
+          <label class="form-label">Критичность</label>
+          <select id="c-severity" class="form-control">
+            <option value="critical">Критичный</option>
+            <option value="high">Высокий</option>
+            <option value="medium" selected>Средний</option>
+            <option value="low">Низкий</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Сервер</label>
+          <select id="c-node" class="form-control">
+            <option value="">— не выбран —</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Описание</label>
+        <textarea id="c-desc" class="form-control" rows="3" placeholder="Подробное описание инцидента"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="Modal.close('modal-create')">Отмена</button>
+      <button class="btn btn-primary" onclick="createIncident()">
+        <i class="bi bi-plus-lg"></i> Создать
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Edit Status -->
+<div class="modal-overlay" id="modal-status">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h3 class="modal-title">Изменить статус</h3>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="Modal.close('modal-status')">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="status-inc-id">
+      <p id="status-inc-title" style="font-weight:600;margin-bottom:1rem;color:#0f172a"></p>
+      <div class="form-group">
+        <label class="form-label">Новый статус</label>
+        <select id="status-select" class="form-control">
+          <option value="open">Открыт</option>
+          <option value="investigating">Расследование</option>
+          <option value="resolved">Решён</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="Modal.close('modal-status')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveStatus()">
+        <i class="bi bi-check-lg"></i> Сохранить
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+Auth.requireAuth();
+
+let allIncidents = [];
+let currentStatusFilter = 'all';
+let currentSevFilter    = 'all';
+
+async function loadIncidents() {
+  await Promise.all([loadStats(), loadTable(), loadNodes()]);
+}
+
+async function loadStats() {
+  try {
+    const d = await api.incidents.stats();
+    document.getElementById('s-total').textContent = d.total        ?? '—';
+    document.getElementById('s-crit').textContent  = d.critical     ?? '—';
+    document.getElementById('s-op').textContent    = d.open         ?? '—';
+    document.getElementById('s-inv').textContent   = d.investigating ?? '—';
+    document.getElementById('s-res').textContent   = d.resolved     ?? '—';
+  } catch {}
+}
+
+async function loadTable() {
+  try {
+    allIncidents = await api.incidents.list();
+    renderIncidents(allIncidents);
+  } catch (e) {
+    document.getElementById('inc-tbody').innerHTML =
+      `<tr><td colspan="8" style="text-align:center;color:#dc2626;padding:2rem">${e.message}</td></tr>`;
+  }
+}
+
+async function loadNodes() {
+  try {
+    const nodes = await api.nodes.list();
+    const sel = document.getElementById('c-node');
+    nodes.forEach(n => {
+      const opt = document.createElement('option');
+      opt.value = n.id;
+      opt.textContent = `${n.hostname} (${n.ip_address})`;
+      sel.appendChild(opt);
+    });
+  } catch {}
+}
+
+function renderIncidents(incs) {
+  const tbody = document.getElementById('inc-tbody');
+
+  if (!incs.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
+      <i class="bi bi-check-circle"></i>
+      <h3>Инцидентов нет</h3>
+      <p>Отлично! Всё работает.</p>
+    </div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = incs.map(inc => `
+    <tr>
+      <td class="font-mono" style="color:#94a3b8;font-size:.8rem">#${inc.id}</td>
+      <td>
+        <div style="font-weight:600;color:#0f172a;max-width:320px">${inc.title}</div>
+        ${inc.description ? `<div style="font-size:.78rem;color:#94a3b8;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px">${inc.description}</div>` : ''}
+      </td>
+      <td>${fmt.severityBadge(inc.severity)}</td>
+      <td>${fmt.statusBadge(inc.status)}</td>
+      <td style="font-family:var(--font-mono);font-size:.8rem;color:#475569">
+        ${inc.node_id ? `<a href="/nodes/${inc.node_id}" style="color:#15803d">node#${inc.node_id}</a>` : '<span class="text-muted">—</span>'}
+      </td>
+      <td style="font-size:.8rem;color:#64748b;white-space:nowrap">${fmt.reltime(inc.created_at)}</td>
+      <td style="font-size:.8rem;color:#64748b">${fmt.mttr(inc.created_at, inc.resolved_at)}</td>
+      <td>
+        <div class="flex gap-1">
+          ${inc.status !== 'resolved' ? `
+          <button class="btn btn-ghost btn-sm role-write" onclick="openStatus(${inc.id},'${inc.title.replace(/'/g,"\\'")}','${inc.status}')">
+            <i class="bi bi-arrow-right-circle"></i> Статус
+          </button>` : ''}
+          <button class="btn btn-ghost btn-icon btn-sm role-admin" onclick="deleteInc(${inc.id})" title="Удалить">
+            <i class="bi bi-trash" style="color:#dc2626"></i>
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function setFilter(btn, f) {
+  document.querySelectorAll('.filter-btn:not(.sev-btn)').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentStatusFilter = f;
+  filterIncidents();
+}
+
+function setSev(btn, f) {
+  document.querySelectorAll('.sev-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentSevFilter = f;
+  filterIncidents();
+}
+
+function filterIncidents() {
+  const q = document.getElementById('search').value.toLowerCase();
+  let filtered = allIncidents;
+
+  if (currentStatusFilter !== 'all') filtered = filtered.filter(i => i.status === currentStatusFilter);
+  if (currentSevFilter    !== 'all') filtered = filtered.filter(i => i.severity === currentSevFilter);
+  if (q) filtered = filtered.filter(i => i.title.toLowerCase().includes(q) || (i.description||'').toLowerCase().includes(q));
+
+  renderIncidents(filtered);
+}
+
+async function createIncident() {
+  const title = document.getElementById('c-title').value.trim();
+  if (!title) { Toast.error('Введите название'); return; }
+
+  const nodeVal = document.getElementById('c-node').value;
+  try {
+    await api.incidents.create({
+      title,
+      severity:    document.getElementById('c-severity').value,
+      description: document.getElementById('c-desc').value.trim() || null,
+      node_id:     nodeVal ? parseInt(nodeVal) : null,
+    });
+    Modal.close('modal-create');
+    document.getElementById('c-title').value = '';
+    document.getElementById('c-desc').value  = '';
+    Toast.success('Инцидент создан');
+    loadIncidents();
+  } catch (e) {
+    Toast.error(e.message);
+  }
+}
+
+function openStatus(id, title, currentStatus) {
+  document.getElementById('status-inc-id').value    = id;
+  document.getElementById('status-inc-title').textContent = title;
+  document.getElementById('status-select').value    = currentStatus;
+  Modal.open('modal-status');
+}
+
+async function saveStatus() {
+  const id     = document.getElementById('status-inc-id').value;
+  const status = document.getElementById('status-select').value;
+  try {
+    await api.incidents.update(id, { status });
+    Modal.close('modal-status');
+    Toast.success('Статус обновлён');
+    loadIncidents();
+  } catch (e) {
+    Toast.error(e.message);
+  }
+}
+
+async function deleteInc(id) {
+  if (!confirm('Удалить этот инцидент?')) return;
+  try {
+    await api.incidents.remove(id);
+    Toast.success('Инцидент удалён');
+    loadIncidents();
+  } catch (e) {
+    Toast.error(e.message);
+  }
+}
+
+loadIncidents();
+</script>
+{% endblock %}

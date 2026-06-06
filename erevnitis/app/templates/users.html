@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Пользователи — Erevnitis{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Пользователи</h1>
+    <p class="page-subtitle">Управление учётными записями системы</p>
+  </div>
+  <button class="btn btn-primary btn-sm" onclick="Modal.open('modal-add-user')">
+    <i class="bi bi-person-plus"></i> Добавить
+  </button>
+</div>
+
+<div class="card">
+  <div class="table-wrapper">
+    <table class="ev-table">
+      <thead>
+        <tr>
+          <th>#</th><th>Логин</th><th>Email</th><th>Роль</th>
+          <th>Статус</th><th>Дата регистрации</th>
+        </tr>
+      </thead>
+      <tbody id="users-tbody">
+        <tr class="loading-row"><td colspan="6">
+          <div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:2rem">
+            <div class="spinner"></div> Загрузка...
+          </div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal: Add User -->
+<div class="modal-overlay" id="modal-add-user">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title"><i class="bi bi-person-plus me-2"></i>Новый пользователь</h3>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="Modal.close('modal-add-user')">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Логин *</label>
+        <input id="u-username" class="form-control" placeholder="ivanov_sre">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email *</label>
+        <input id="u-email" class="form-control" type="email" placeholder="ivanov@company.ru">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Пароль *</label>
+        <input id="u-password" class="form-control" type="password" placeholder="Минимум 6 символов">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Роль</label>
+        <select id="u-role" class="form-control">
+          <option value="viewer">Viewer — только чтение</option>
+          <option value="analyst">Analyst — чтение + экспорт</option>
+          <option value="sre">SRE — чтение + запись</option>
+          <option value="admin">Admin — полный доступ</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="Modal.close('modal-add-user')">Отмена</button>
+      <button class="btn btn-primary" onclick="addUser()">
+        <i class="bi bi-person-plus"></i> Создать
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+Auth.requireAuth();
+if (Auth.getRole() !== 'admin') window.location.href = '/dashboard';
+
+const ROLE_LABELS = {
+  admin:   { label: 'Admin',   cls: 'badge-critical' },
+  sre:     { label: 'SRE',     cls: 'badge-open' },
+  analyst: { label: 'Analyst', cls: 'badge-investigating' },
+  viewer:  { label: 'Viewer',  cls: 'badge-unknown' },
+};
+
+async function loadUsers() {
+  const tbody = document.getElementById('users-tbody');
+  try {
+    const users = await api.auth.users();
+    tbody.innerHTML = users.map(u => {
+      const r = ROLE_LABELS[u.role] || { label: u.role, cls: 'badge-unknown' };
+      return `<tr>
+        <td class="font-mono" style="color:#94a3b8">${u.id}</td>
+        <td style="font-weight:600">${u.username}</td>
+        <td style="color:#64748b">${u.email}</td>
+        <td><span class="badge ${r.cls}">${r.label}</span></td>
+        <td>${u.is_active
+          ? '<span class="badge badge-online"><span class="badge-dot"></span>Активен</span>'
+          : '<span class="badge badge-offline">Деактивирован</span>'}</td>
+        <td style="font-size:.8rem;color:#94a3b8">${fmt.date(u.created_at)}</td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#dc2626;padding:2rem">${e.message}</td></tr>`;
+  }
+}
+
+async function addUser() {
+  const username = document.getElementById('u-username').value.trim();
+  const email    = document.getElementById('u-email').value.trim();
+  const password = document.getElementById('u-password').value;
+  const role     = document.getElementById('u-role').value;
+
+  if (!username || !email || !password) {
+    Toast.error('Заполните все обязательные поля'); return;
+  }
+
+  try {
+    await api.auth.register({ username, email, password, role });
+    Modal.close('modal-add-user');
+    Toast.success(`Пользователь ${username} создан`);
+    loadUsers();
+  } catch (e) {
+    Toast.error(e.message);
+  }
+}
+
+loadUsers();
+</script>
+{% endblock %}

@@ -139,3 +139,23 @@ def delete_incident(
         raise HTTPException(status_code=404, detail="Инцидент не найден")
     db.delete(inc)
     db.commit()
+
+
+@router.get("/export/csv")
+def export_incidents_csv(
+    db: Session = Depends(get_db),
+    _=Depends(require_any_auth)
+):
+    """Экспорт всех инцидентов в CSV"""
+    import io, csv
+    from fastapi.responses import StreamingResponse
+    incidents = db.query(Incident).order_by(Incident.created_at.desc()).all()
+    output = io.StringIO()
+    w = csv.writer(output)
+    w.writerow(["id","title","severity","status","node_id","assigned_to_id","created_at","resolved_at","description"])
+    for inc in incidents:
+        w.writerow([inc.id, inc.title, inc.severity, inc.status, inc.node_id,
+                    inc.assigned_to_id, inc.created_at, inc.resolved_at, inc.description])
+    output.seek(0)
+    return StreamingResponse(io.StringIO(output.getvalue()), media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=incidents.csv"})

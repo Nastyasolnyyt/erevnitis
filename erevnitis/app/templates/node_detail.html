@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+{% block title %}Сервер — Erevnitis{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:.875rem">
+    <a href="/nodes" class="btn btn-ghost btn-icon btn-sm"><i class="bi bi-arrow-left"></i></a>
+    <div>
+      <h1 class="page-title" id="node-title" style="font-family:var(--font-mono)">—</h1>
+      <p class="page-subtitle" id="node-subtitle">—</p>
+    </div>
+  </div>
+  <div class="flex gap-2">
+    <select id="period-select" class="form-control" style="width:auto" onchange="loadMetrics()">
+      <option value="1">1 час</option>
+      <option value="6">6 часов</option>
+      <option value="24" selected>24 часа</option>
+      <option value="168">7 дней</option>
+    </select>
+    <a id="export-metrics" href="#" class="btn btn-ghost btn-sm">
+      <i class="bi bi-download"></i> CSV
+    </a>
+    <a id="agent-link" href="#" class="btn btn-outline btn-sm">
+      <i class="bi bi-terminal"></i> Агент-скрипт
+    </a>
+  </div>
+</div>
+
+<!-- Info cards -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem;margin-bottom:1.5rem" id="info-grid">
+  <div class="card" style="padding:1rem 1.25rem">
+    <div class="stat-label">Статус</div>
+    <div id="n-status" class="mt-2">—</div>
+  </div>
+  <div class="card" style="padding:1rem 1.25rem">
+    <div class="stat-label">IP адрес</div>
+    <div id="n-ip" class="font-mono" style="font-size:.9375rem;font-weight:600;margin-top:.5rem">—</div>
+  </div>
+  <div class="card" style="padding:1rem 1.25rem">
+    <div class="stat-label">Расположение</div>
+    <div id="n-location" style="font-size:.9375rem;font-weight:600;margin-top:.5rem">—</div>
+  </div>
+  <div class="card" style="padding:1rem 1.25rem">
+    <div class="stat-label">Pushgateway Job</div>
+    <div id="n-purpose" class="font-mono" style="font-size:.875rem;color:#64748b;margin-top:.5rem;word-break:break-all">—</div>
+  </div>
+  <div class="card" style="padding:1rem 1.25rem">
+    <div class="stat-label">Последний отклик</div>
+    <div id="n-lastseen" style="font-size:.9375rem;font-weight:600;margin-top:.5rem">—</div>
+  </div>
+</div>
+
+<!-- Live metrics -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem" id="live-metrics">
+  <div class="card stat-card">
+    <div class="stat-icon amber"><i class="bi bi-cpu"></i></div>
+    <div class="stat-value" id="m-cpu">—</div>
+    <div class="stat-label">CPU Usage</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-icon blue"><i class="bi bi-memory"></i></div>
+    <div class="stat-value" id="m-ram">—</div>
+    <div class="stat-label">RAM</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-icon green"><i class="bi bi-hdd"></i></div>
+    <div class="stat-value" id="m-disk">—</div>
+    <div class="stat-label">Disk Free</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-icon purple"><i class="bi bi-arrow-down-up"></i></div>
+    <div class="stat-value" id="m-net">—</div>
+    <div class="stat-label">Network RX</div>
+  </div>
+</div>
+
+<!-- Charts 2x2 -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem">
+  <div class="card">
+    <div class="card-header"><span class="card-title">CPU Usage %</span></div>
+    <div class="card-body"><canvas id="chart-cpu" height="180"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">RAM Utilization %</span></div>
+    <div class="card-body"><canvas id="chart-ram" height="180"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Disk Free %</span></div>
+    <div class="card-body"><canvas id="chart-disk" height="180"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Network RX (MB/s)</span></div>
+    <div class="card-body"><canvas id="chart-net" height="180"></canvas></div>
+  </div>
+</div>
+
+<!-- Incidents for this node -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title"><i class="bi bi-exclamation-triangle me-2"></i>Инциденты этого сервера</span>
+  </div>
+  <div class="table-wrapper">
+    <table class="ev-table">
+      <thead>
+        <tr>
+          <th>#</th><th>Название</th><th>Критичность</th>
+          <th>Статус</th><th>Создан</th><th>MTTR</th>
+        </tr>
+      </thead>
+      <tbody id="node-incidents"></tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+Auth.requireAuth();
+
+const NODE_ID = {{ node_id }};
+const charts = {};
+
+const CHART_DEFAULTS = {
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: { duration: 400 },
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor: 'rgba(15,23,42,0.9)',
+      titleFont: { family: "'Inter',sans-serif", size: 12 },
+      bodyFont:  { family: "'JetBrains Mono',monospace", size: 13 },
+      padding: 10,
+      cornerRadius: 8,
+    }
+  },
+  scales: {
+    x: {
+      ticks: {
+        font: { family: "'Inter',sans-serif", size: 11 },
+        color: '#94a3b8',
+        maxTicksLimit: 8,
+        maxRotation: 0,
+      },
+      grid: { color: 'rgba(34,197,94,0.06)' },
+    },
+    y: {
+      ticks: {
+        font: { family: "'Inter',sans-serif", size: 11 },
+        color: '#94a3b8',
+      },
+      grid: { color: 'rgba(34,197,94,0.06)' },
+    }
+  }
+};
+
+function makeChart(id, color, maxY) {
+  const ctx = document.getElementById(id).getContext('2d');
+  return new Chart(ctx, {
+    type: 'line',
+    data: { labels: [], datasets: [{ data: [], borderColor: color,
+      backgroundColor: color + '18', fill: true,
+      tension: 0.4, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4 }] },
+    options: {
+      ...CHART_DEFAULTS,
+      scales: {
+        ...CHART_DEFAULTS.scales,
+        y: { ...CHART_DEFAULTS.scales.y, min: 0, max: maxY || undefined }
+      }
+    }
+  });
+}
+
+function formatLabel(iso) {
+  const d = new Date(iso);
+  return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+}
+
+function updateChart(chart, points) {
+  if (!points || !points.length) return;
+  chart.data.labels = points.map(p => formatLabel(p.ts));
+  chart.data.datasets[0].data = points.map(p => p.value);
+  chart.update('none');
+}
+
+async function loadNodeInfo() {
+  try {
+    const n = await api.nodes.get(NODE_ID);
+    document.getElementById('node-title').textContent    = n.hostname;
+    document.getElementById('node-subtitle').textContent = `${n.ip_address} · ${n.location || '—'} · ${n.os_type}`;
+    document.getElementById('n-status').innerHTML        = fmt.onlineBadge(n.status);
+    document.getElementById('n-ip').textContent          = n.ip_address;
+    document.getElementById('n-location').textContent    = n.location || '—';
+    document.getElementById('n-purpose').textContent     = n.purpose  || '—';
+    document.getElementById('n-lastseen').textContent    = fmt.reltime(n.last_seen);
+
+    document.getElementById('export-metrics').href = api.metrics.exportCSV(NODE_ID);
+    document.getElementById('agent-link').href     = api.nodes.agentScript(NODE_ID);
+  } catch (e) {
+    Toast.error('Ошибка загрузки сервера: ' + e.message);
+  }
+}
+
+async function loadMetricsSummary() {
+  try {
+    const s = await api.metrics.summary(NODE_ID);
+    document.getElementById('m-cpu').textContent  = fmt.percent(s.cpu_usage);
+    document.getElementById('m-ram').textContent  = fmt.percent(s.ram_utilization);
+    document.getElementById('m-disk').textContent = fmt.percent(s.disk_free);
+    document.getElementById('m-net').textContent  = fmt.bytes(s.net_rx_mb);
+  } catch {}
+}
+
+async function loadMetrics() {
+  const hours = document.getElementById('period-select').value;
+  try {
+    const d = await api.metrics.series(NODE_ID, null, hours);
+    const s = d.series || {};
+
+    if (charts.cpu)  updateChart(charts.cpu,  s.cpu_usage       || []);
+    if (charts.ram)  updateChart(charts.ram,  s.ram_utilization || []);
+    if (charts.disk) updateChart(charts.disk, s.disk_free        || []);
+    if (charts.net)  updateChart(charts.net,  s.net_rx_mb        || []);
+  } catch {}
+}
+
+async function loadNodeIncidents() {
+  const tbody = document.getElementById('node-incidents');
+  try {
+    const incs = await api.incidents.list(`?node_id=${NODE_ID}`);
+    if (!incs.length) {
+      tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state" style="padding:2rem">
+        <i class="bi bi-check-circle"></i><h3>Инцидентов нет</h3>
+      </div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = incs.map(i => `
+      <tr>
+        <td class="font-mono" style="color:#94a3b8;font-size:.8rem">#${i.id}</td>
+        <td style="font-weight:600">${i.title}</td>
+        <td>${fmt.severityBadge(i.severity)}</td>
+        <td>${fmt.statusBadge(i.status)}</td>
+        <td style="font-size:.8rem;color:#64748b">${fmt.reltime(i.created_at)}</td>
+        <td style="font-size:.8rem;color:#64748b">${fmt.mttr(i.created_at, i.resolved_at)}</td>
+      </tr>
+    `).join('');
+  } catch {}
+}
+
+// Init charts
+charts.cpu  = makeChart('chart-cpu',  '#f59e0b', 100);
+charts.ram  = makeChart('chart-ram',  '#3b82f6', 100);
+charts.disk = makeChart('chart-disk', '#22c55e', 100);
+charts.net  = makeChart('chart-net',  '#8b5cf6');
+
+// Load everything
+Promise.all([loadNodeInfo(), loadMetricsSummary(), loadMetrics(), loadNodeIncidents()]);
+
+// Auto-refresh every 60s
+setInterval(() => {
+  loadMetricsSummary();
+  loadMetrics();
+  loadNodeInfo();
+}, 60000);
+</script>
+{% endblock %}
+
+<script>
+// Override loadMetrics to also highlight anomalies on charts
+const _origLoadMetrics = loadMetrics;
+async function loadMetrics() {
+  await _origLoadMetrics();
+  await loadAnomalies();
+}
+
+async function loadAnomalies() {
+  try {
+    const hours = document.getElementById('period-select').value;
+    const d = await api.get(`/api/v1/analytics/anomalies/${NODE_ID}?hours=${hours}`);
+    
+    if (d.total_anomalies === 0) return;
+
+    // Show anomaly badge
+    let badge = document.getElementById('anomaly-badge');
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.id = 'anomaly-badge';
+      badge.style.cssText = 'background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:.75rem 1rem;margin-bottom:1.25rem;font-size:.875rem;color:#991b1b;display:flex;align-items:center;gap:.5rem;';
+      const main = document.querySelector('.page-content');
+      const firstCard = main.querySelector('.card');
+      main.insertBefore(badge, firstCard);
+    }
+    badge.innerHTML = `
+      <i class="bi bi-graph-up-arrow" style="font-size:1.1rem"></i>
+      <strong>Обнаружено ${d.total_anomalies} аномалий</strong> за последние ${hours} часов —
+      значения отклоняются более чем на 2σ от нормы для этого времени суток.
+      <span style="margin-left:auto;font-size:.75rem;color:#b91c1c">
+        ${Object.entries(d.anomalies).filter(([,v])=>v.length).map(([k,v])=>`${k}: ${v.length}`).join(' · ')}
+      </span>
+    `;
+
+    // Mark anomaly points on CPU chart
+    if (d.anomalies.cpu_usage?.length && charts.cpu) {
+      const anomalyTs = new Set(d.anomalies.cpu_usage.map(a => a.ts.slice(0,16)));
+      const ds = charts.cpu.data.datasets[0];
+      ds.pointRadius = charts.cpu.data.labels.map((l,i) => {
+        const tsKey = new Date(charts.cpu.data.labels[i] + ':00').toISOString().slice(0,16);
+        return anomalyTs.has(tsKey) ? 5 : 0;
+      });
+      ds.pointBackgroundColor = charts.cpu.data.labels.map((l,i) => {
+        const tsKey = new Date(l + ':00').toISOString().slice(0,16);
+        return anomalyTs.has(tsKey) ? '#ef4444' : '#f59e0b';
+      });
+      charts.cpu.update('none');
+    }
+  } catch {}
+}
+</script>

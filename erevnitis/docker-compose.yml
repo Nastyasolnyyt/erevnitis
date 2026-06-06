@@ -17,7 +17,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # для полного стека с PostgreSQL:
+  # Раскомментируй для полного стека с PostgreSQL:
   # db:
   #   image: postgres:16-alpine
   #   environment:

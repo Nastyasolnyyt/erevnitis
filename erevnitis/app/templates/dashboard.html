@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Erevnitis<!-- SLA Summary on dashboard -->
+<div class="card" style="margin-top:1.25rem">
+  <div class="card-header">
+    <span class="card-title"><i class="bi bi-shield-check me-2 text-success"></i>SLA Overview (30 дней, SLO 99.9%)</span>
+    <a href="/sla" class="btn btn-ghost btn-sm">Подробнее <i class="bi bi-arrow-right"></i></a>
+  </div>
+  <div id="dash-sla">
+    <div class="loading-row" style="padding:1.5rem;text-align:center;color:#94a3b8">
+      <div class="spinner" style="margin:0 auto 8px"></div>Загрузка SLA...
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-subtitle">Общий обзор состояния инфраструктуры</p>
+  </div>
+  <div class="flex gap-2">
+    <button class="btn btn-ghost btn-sm" onclick="loadAll()">
+      <i class="bi bi-arrow-clockwise"></i> Обновить
+    </button>
+    <a href="/incidents" class="btn btn-primary btn-sm role-write">
+      <i class="bi bi-plus-lg"></i> Новый инцидент
+    </a>
+  </div>
+</div>
+
+<!-- Stat cards -->
+<div class="stat-grid" id="stats-grid">
+  <div class="card stat-card">
+    <div class="stat-icon green"><i class="bi bi-server"></i></div>
+    <div class="stat-value" id="s-total-nodes">—</div>
+    <div class="stat-label">Серверов всего</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-icon green"><i class="bi bi-wifi"></i></div>
+    <div class="stat-value" id="s-online-nodes">—</div>
+    <div class="stat-label">Online</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-icon red"><i class="bi bi-wifi-off"></i></div>
+    <div class="stat-value" id="s-offline-nodes">—</div>
+    <div class="stat-label">Offline</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-icon red"><i class="bi bi-exclamation-octagon"></i></div>
+    <div class="stat-value" id="s-critical">—</div>
+    <div class="stat-label">Критичных</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-icon amber"><i class="bi bi-clock-history"></i></div>
+    <div class="stat-value" id="s-open">—</div>
+    <div class="stat-label">Открытых</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-icon blue"><i class="bi bi-search"></i></div>
+    <div class="stat-value" id="s-investigating">—</div>
+    <div class="stat-label">Расследуется</div>
+  </div>
+</div>
+
+<!-- Two columns -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem">
+
+  <!-- Recent incidents -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Активные инциденты</span>
+      <a href="/incidents" class="btn btn-ghost btn-sm">Все <i class="bi bi-arrow-right"></i></a>
+    </div>
+    <div id="recent-incidents">
+      <div class="loading-row" style="padding:2rem;text-align:center;color:#94a3b8">
+        <div class="spinner" style="margin:0 auto 8px"></div>Загрузка...
+      </div>
+    </div>
+  </div>
+
+  <!-- Nodes status -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="bi bi-server text-success me-2"></i>Состояние серверов</span>
+      <a href="/nodes" class="btn btn-ghost btn-sm">Все <i class="bi bi-arrow-right"></i></a>
+    </div>
+    <div id="nodes-status">
+      <div class="loading-row" style="padding:2rem;text-align:center;color:#94a3b8">
+        <div class="spinner" style="margin:0 auto 8px"></div>Загрузка...
+      </div>
+    </div>
+  </div>
+
+</div>
+<!-- SLA Summary on dashboard -->
+<div class="card" style="margin-top:1.25rem">
+  <div class="card-header">
+    <span class="card-title"><i class="bi bi-shield-check me-2 text-success"></i>SLA Overview (30 дней, SLO 99.9%)</span>
+    <a href="/sla" class="btn btn-ghost btn-sm">Подробнее <i class="bi bi-arrow-right"></i></a>
+  </div>
+  <div id="dash-sla">
+    <div class="loading-row" style="padding:1.5rem;text-align:center;color:#94a3b8">
+      <div class="spinner" style="margin:0 auto 8px"></div>Загрузка SLA...
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+Auth.requireAuth();
+
+async function loadAll() {
+  await Promise.all([loadNodeStats(), loadIncidentStats(), loadRecentIncidents(), loadNodesStatus()]);
+}
+
+async function loadNodeStats() {
+  try {
+    const d = await api.nodes.stats();
+    document.getElementById('s-total-nodes').textContent  = d.total   ?? '—';
+    document.getElementById('s-online-nodes').textContent = d.online  ?? '—';
+    document.getElementById('s-offline-nodes').textContent = d.offline ?? '—';
+  } catch {}
+}
+
+async function loadIncidentStats() {
+  try {
+    const d = await api.incidents.stats();
+    document.getElementById('s-critical').textContent     = d.critical     ?? '—';
+    document.getElementById('s-open').textContent         = d.open         ?? '—';
+    document.getElementById('s-investigating').textContent = d.investigating ?? '—';
+  } catch {}
+}
+
+async function loadRecentIncidents() {
+  const el = document.getElementById('recent-incidents');
+  try {
+    const data = await api.incidents.list('?status=open&status=investigating');
+    const all  = await api.incidents.list();
+    const active = all.filter(i => i.status !== 'resolved').slice(0, 6);
+
+    if (!active.length) {
+      el.innerHTML = `<div class="empty-state"><i class="bi bi-check-circle"></i><h3>Нет активных инцидентов</h3></div>`;
+      return;
+    }
+
+    el.innerHTML = active.map(inc => `
+      <div style="padding:.75rem 1.25rem;border-bottom:1px solid rgba(34,197,94,.07);display:flex;align-items:center;gap:.75rem">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.875rem;font-weight:600;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${inc.title}</div>
+          <div style="font-size:.75rem;color:#94a3b8;margin-top:2px">${fmt.reltime(inc.created_at)}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          ${fmt.severityBadge(inc.severity)}
+          ${fmt.statusBadge(inc.status)}
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    el.innerHTML = `<div class="empty-state"><p style="color:#dc2626">Ошибка загрузки</p></div>`;
+  }
+}
+
+async function loadNodesStatus() {
+  const el = document.getElementById('nodes-status');
+  try {
+    const nodes = await api.nodes.list();
+    if (!nodes.length) {
+      el.innerHTML = `<div class="empty-state"><i class="bi bi-server"></i><h3>Нет серверов</h3></div>`;
+      return;
+    }
+
+    el.innerHTML = nodes.slice(0, 6).map(n => `
+      <div style="padding:.75rem 1.25rem;border-bottom:1px solid rgba(34,197,94,.07);display:flex;align-items:center;gap:.75rem">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.875rem;font-weight:600;color:#0f172a;font-family:var(--font-mono)">${n.hostname}</div>
+          <div style="font-size:.75rem;color:#94a3b8">${n.ip_address} · ${n.location || '—'}</div>
+        </div>
+        ${fmt.onlineBadge(n.status)}
+      </div>
+    `).join('');
+  } catch {
+    el.innerHTML = `<div class="empty-state"><p style="color:#dc2626">Ошибка загрузки</p></div>`;
+  }
+}
+
+loadAll();
+</script>
+<!-- SLA Summary on dashboard -->
+<div class="card" style="margin-top:1.25rem">
+  <div class="card-header">
+    <span class="card-title"><i class="bi bi-shield-check me-2 text-success"></i>SLA Overview (30 дней, SLO 99.9%)</span>
+    <a href="/sla" class="btn btn-ghost btn-sm">Подробнее <i class="bi bi-arrow-right"></i></a>
+  </div>
+  <div id="dash-sla">
+    <div class="loading-row" style="padding:1.5rem;text-align:center;color:#94a3b8">
+      <div class="spinner" style="margin:0 auto 8px"></div>Загрузка SLA...
+    </div>
+  </div>
+</div>
+{% endblock %}
+<script>
+// Add SLA to loadAll
+const _origLoadAll = loadAll;
+async function loadAll() {
+  await _origLoadAll();
+  loadDashSLA();
+}
+
+async function loadDashSLA() {
+  const el = document.getElementById('dash-sla');
+  try {
+    const d = await api.get('/api/v1/analytics/sla?days=30&slo_target=99.9');
+    if (!d.nodes.length) {
+      el.innerHTML = '<div class="empty-state" style="padding:1rem"><p>Нет данных</p></div>';
+      return;
+    }
+    el.innerHTML = d.nodes.map(n => {
+      const color = n.meets_slo ? '#22c55e' : '#ef4444';
+      const bpct  = Math.min(100, n.error_budget_pct);
+      const bcolor = bpct < 50 ? '#22c55e' : bpct < 80 ? '#f59e0b' : '#ef4444';
+      return `
+      <div style="padding:.65rem 1.25rem;border-bottom:1px solid rgba(34,197,94,.07);
+                  display:grid;grid-template-columns:1fr 120px 200px 80px;gap:1rem;align-items:center">
+        <span class="font-mono" style="font-weight:600">${n.hostname}</span>
+        <span style="font-weight:700;color:${color}">${n.availability_pct.toFixed(3)}%</span>
+        <div>
+          <div style="font-size:.72rem;color:#94a3b8;margin-bottom:3px">Error Budget: ${bpct.toFixed(0)}%</div>
+          <div style="height:5px;background:rgba(0,0,0,.06);border-radius:99px;overflow:hidden">
+            <div style="height:100%;width:${bpct}%;background:${bcolor};border-radius:99px;transition:width 1s ease"></div>
+          </div>
+        </div>
+        <span>${n.meets_slo
+          ? '<span class="badge badge-resolved">OK</span>'
+          : '<span class="badge badge-critical">SLO ✗</span>'}</span>
+      </div>`;
+    }).join('');
+  } catch {}
+}
+</script>

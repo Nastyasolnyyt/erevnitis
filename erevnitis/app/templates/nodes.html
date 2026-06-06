@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+{% block title %}Серверы — Erevnitis{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Серверные узлы</h1>
+    <p class="page-subtitle">Реестр инфраструктурных активов</p>
+  </div>
+  <div class="flex gap-2">
+    <button class="btn btn-ghost btn-sm" onclick="loadNodes()">
+      <i class="bi bi-arrow-clockwise"></i>
+    </button>
+    <button class="btn btn-primary btn-sm role-write" onclick="Modal.open('modal-add-node')">
+      <i class="bi bi-plus-lg"></i> Добавить сервер
+    </button>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="card" style="margin-bottom:1.25rem">
+  <div class="card-body" style="padding:.875rem 1.25rem">
+    <div class="flex gap-3 items-center flex-wrap">
+      <div class="search-wrap">
+        <i class="bi bi-search"></i>
+        <input id="search" class="form-control search-input" placeholder="Поиск по hostname, IP..." oninput="filterNodes()">
+      </div>
+      <div class="filter-bar">
+        <button class="filter-btn active" data-filter="all"    onclick="setFilter(this,'all')">Все</button>
+        <button class="filter-btn"        data-filter="online" onclick="setFilter(this,'online')">Online</button>
+        <button class="filter-btn"        data-filter="offline" onclick="setFilter(this,'offline')">Offline</button>
+        <button class="filter-btn"        data-filter="prod"   onclick="setFilter(this,'prod')">Production</button>
+        <button class="filter-btn"        data-filter="staging" onclick="setFilter(this,'staging')">Staging</button>
+      </div>
+      <span id="nodes-count" class="text-muted" style="font-size:.8125rem;margin-left:auto"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="card">
+  <div class="table-wrapper">
+    <table class="ev-table">
+      <thead>
+        <tr>
+          <th>Hostname</th>
+          <th>IP адрес</th>
+          <th>ОС</th>
+          <th>Расположение</th>
+          <th>Pushgateway Job</th>
+          <th>Теги</th>
+          <th>Статус</th>
+          <th>Последний отклик</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="nodes-tbody">
+        <tr class="loading-row"><td colspan="9">
+          <div style="display:flex;align-items:center;justify-content:center;gap:10px">
+            <div class="spinner"></div> Загрузка серверов...
+          </div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal: Add Node -->
+<div class="modal-overlay" id="modal-add-node">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title"><i class="bi bi-server me-2"></i>Добавить сервер</h3>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="Modal.close('modal-add-node')">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <div class="form-group">
+          <label class="form-label">Hostname *</label>
+          <input id="n-hostname" class="form-control" placeholder="prod-web-01">
+        </div>
+        <div class="form-group">
+          <label class="form-label">IP адрес *</label>
+          <input id="n-ip" class="form-control" placeholder="10.0.1.10">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <div class="form-group">
+          <label class="form-label">Тип ОС</label>
+          <select id="n-os" class="form-control">
+            <option value="linux">Linux</option>
+            <option value="windows">Windows</option>
+            <option value="bsd">BSD</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Расположение</label>
+          <input id="n-location" class="form-control" placeholder="DC-Moscow-1">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Pushgateway Job</label>
+        <input id="n-purpose" class="form-control" placeholder="node_exporter_job_name">
+        <div style="font-size:.78rem;color:#94a3b8;margin-top:4px">
+          Имя job для Prometheus Pushgateway — используется агент-скриптом для отправки метрик
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Теги</label>
+        <input id="n-tags" class="form-control" placeholder="env:prod,service:web,team:backend">
+        <div style="font-size:.78rem;color:#94a3b8;margin-top:4px">
+          Формат: ключ:значение через запятую
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="Modal.close('modal-add-node')">Отмена</button>
+      <button class="btn btn-primary" onclick="addNode()">
+        <i class="bi bi-plus-lg"></i> Добавить
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Edit Node -->
+<div class="modal-overlay" id="modal-edit-node">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title"><i class="bi bi-pencil me-2"></i>Редактировать сервер</h3>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="Modal.close('modal-edit-node')">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-node-id">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <div class="form-group">
+          <label class="form-label">Hostname</label>
+          <input id="edit-hostname" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">IP адрес</label>
+          <input id="edit-ip" class="form-control">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <div class="form-group">
+          <label class="form-label">Расположение</label>
+          <input id="edit-location" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Статус</label>
+          <select id="edit-status" class="form-control">
+            <option value="true">Online</option>
+            <option value="false">Offline</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Pushgateway Job</label>
+        <input id="edit-purpose" class="form-control">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Теги</label>
+        <input id="edit-tags" class="form-control">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="Modal.close('modal-edit-node')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveEdit()">
+        <i class="bi bi-check-lg"></i> Сохранить
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Agent Script -->
+<div class="modal-overlay" id="modal-agent">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <h3 class="modal-title"><i class="bi bi-terminal me-2"></i>Установка агента</h3>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="Modal.close('modal-agent')">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:.875rem;color:#475569;margin-bottom:1rem">
+        Выполни эти команды на сервере <strong id="agent-hostname"></strong>, чтобы начать отправку метрик в Erevnitis.
+      </p>
+
+      <div class="form-group">
+        <label class="form-label">1. Скачать скрипт агента</label>
+        <div style="background:#1e293b;border-radius:10px;padding:1rem;font-family:var(--font-mono);font-size:.8rem;color:#e2e8f0;position:relative">
+          <span id="agent-cmd-download"></span>
+          <button class="btn btn-ghost btn-sm"
+            style="position:absolute;top:8px;right:8px;color:#94a3b8"
+            onclick="copyText(document.getElementById('agent-cmd-download').textContent)">
+            <i class="bi bi-clipboard"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">2. Запустить в фоне</label>
+        <div style="background:#1e293b;border-radius:10px;padding:1rem;font-family:var(--font-mono);font-size:.8rem;color:#e2e8f0">
+          chmod +x erevnitis_agent.sh &amp;&amp; EREVNITIS_URL=http://YOUR_IP:8000 nohup ./erevnitis_agent.sh &amp;
+        </div>
+      </div>
+
+      <div style="background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:10px;padding:.875rem 1rem;font-size:.8125rem;color:#15803d">
+        <i class="bi bi-info-circle me-1"></i>
+        Агент отправляет метрики CPU, RAM, Disk, Network каждые 60 секунд. Данные появятся на странице сервера через минуту.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <a id="agent-download-btn" href="#" class="btn btn-outline" target="_blank">
+        <i class="bi bi-download"></i> Скачать скрипт
+      </a>
+      <button class="btn btn-ghost" onclick="Modal.close('modal-agent')">Закрыть</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+Auth.requireAuth();
+
+let allNodes = [];
+let currentFilter = 'all';
+
+async function loadNodes() {
+  try {
+    allNodes = await api.nodes.list();
+    renderNodes(allNodes);
+  } catch (e) {
+    document.getElementById('nodes-tbody').innerHTML =
+      `<tr><td colspan="9" style="text-align:center;color:#dc2626;padding:2rem">${e.message}</td></tr>`;
+  }
+}
+
+function renderNodes(nodes) {
+  const tbody = document.getElementById('nodes-tbody');
+  document.getElementById('nodes-count').textContent = `${nodes.length} серверов`;
+
+  if (!nodes.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">
+      <i class="bi bi-server"></i><h3>Серверов не найдено</h3>
+      <p>Добавьте первый сервер</p>
+    </div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = nodes.map(n => {
+    const tags = (n.tags || '').split(',').filter(Boolean).map(t =>
+      `<span style="background:rgba(34,197,94,.1);color:#15803d;padding:2px 7px;border-radius:99px;font-size:.72rem;font-weight:500">${t.trim()}</span>`
+    ).join(' ');
+
+    return `<tr>
+      <td>
+        <a href="/nodes/${n.id}" style="font-weight:600;color:#0f172a;font-family:var(--font-mono);font-size:.875rem">
+          ${n.hostname}
+        </a>
+      </td>
+      <td class="font-mono" style="color:#475569;font-size:.85rem">${n.ip_address}</td>
+      <td><span style="text-transform:capitalize">${n.os_type || '—'}</span></td>
+      <td style="color:#475569">${n.location || '—'}</td>
+      <td>
+        <span class="font-mono" style="font-size:.78rem;color:#64748b;background:#f8fafc;padding:2px 8px;border-radius:6px;border:1px solid #e2e8f0">
+          ${n.purpose || '—'}
+        </span>
+      </td>
+      <td>${tags || '<span class="text-muted">—</span>'}</td>
+      <td>${fmt.onlineBadge(n.status)}</td>
+      <td style="color:#64748b;font-size:.8rem">${fmt.reltime(n.last_seen)}</td>
+      <td>
+        <div class="flex gap-1">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="showAgent(${n.id},'${n.hostname}')" title="Агент-скрипт">
+            <i class="bi bi-terminal"></i>
+          </button>
+          <button class="btn btn-ghost btn-icon btn-sm role-write" onclick="openEdit(${JSON.stringify(n).replace(/"/g,'&quot;')})" title="Редактировать">
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button class="btn btn-ghost btn-icon btn-sm role-admin" onclick="deleteNode(${n.id},'${n.hostname}')" title="Удалить">
+            <i class="bi bi-trash" style="color:#dc2626"></i>
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function setFilter(btn, filter) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentFilter = filter;
+  filterNodes();
+}
+
+function filterNodes() {
+  const q = document.getElementById('search').value.toLowerCase();
+  let filtered = allNodes;
+
+  if (currentFilter === 'online')  filtered = filtered.filter(n => n.status);
+  if (currentFilter === 'offline') filtered = filtered.filter(n => !n.status);
+  if (currentFilter === 'prod')    filtered = filtered.filter(n => (n.tags||'').includes('env:prod'));
+  if (currentFilter === 'staging') filtered = filtered.filter(n => (n.tags||'').includes('env:staging'));
+
+  if (q) filtered = filtered.filter(n =>
+    n.hostname.toLowerCase().includes(q) ||
+    n.ip_address.includes(q) ||
+    (n.location||'').toLowerCase().includes(q) ||
+    (n.tags||'').toLowerCase().includes(q)
+  );
+
+  renderNodes(filtered);
+}
+
+async function addNode() {
+  const data = {
+    hostname:   document.getElementById('n-hostname').value.trim(),
+    ip_address: document.getElementById('n-ip').value.trim(),
+    os_type:    document.getElementById('n-os').value,
+    location:   document.getElementById('n-location').value.trim() || null,
+    purpose:    document.getElementById('n-purpose').value.trim() || null,
+    tags:       document.getElementById('n-tags').value.trim() || null,
+  };
+
+  if (!data.hostname || !data.ip_address) {
+    Toast.error('Заполните hostname и IP адрес'); return;
+  }
+
+  try {
+    await api.nodes.create(data);
+    Modal.close('modal-add-node');
+    Toast.success(`Сервер ${data.hostname} добавлен`);
+    loadNodes();
+  } catch (e) {
+    Toast.error(e.message);
+  }
+}
+
+function openEdit(node) {
+  document.getElementById('edit-node-id').value  = node.id;
+  document.getElementById('edit-hostname').value = node.hostname;
+  document.getElementById('edit-ip').value       = node.ip_address;
+  document.getElementById('edit-location').value = node.location || '';
+  document.getElementById('edit-purpose').value  = node.purpose  || '';
+  document.getElementById('edit-tags').value     = node.tags     || '';
+  document.getElementById('edit-status').value   = node.status ? 'true' : 'false';
+  Modal.open('modal-edit-node');
+}
+
+async function saveEdit() {
+  const id = document.getElementById('edit-node-id').value;
+  const data = {
+    hostname:   document.getElementById('edit-hostname').value.trim(),
+    ip_address: document.getElementById('edit-ip').value.trim(),
+    location:   document.getElementById('edit-location').value.trim() || null,
+    purpose:    document.getElementById('edit-purpose').value.trim() || null,
+    tags:       document.getElementById('edit-tags').value.trim() || null,
+    status:     document.getElementById('edit-status').value === 'true',
+  };
+  try {
+    await api.nodes.update(id, data);
+    Modal.close('modal-edit-node');
+    Toast.success('Сервер обновлён');
+    loadNodes();
+  } catch (e) {
+    Toast.error(e.message);
+  }
+}
+
+async function deleteNode(id, name) {
+  if (!confirm(`Удалить сервер ${name}? Это также удалит все связанные метрики.`)) return;
+  try {
+    await api.nodes.remove(id);
+    Toast.success(`Сервер ${name} удалён`);
+    loadNodes();
+  } catch (e) {
+    Toast.error(e.message);
+  }
+}
+
+function showAgent(id, hostname) {
+  document.getElementById('agent-hostname').textContent = hostname;
+  const url = `${window.location.origin}${api.nodes.agentScript(id)}`;
+  document.getElementById('agent-cmd-download').textContent =
+    `curl -O ${url}`;
+  document.getElementById('agent-download-btn').href = url;
+  Modal.open('modal-agent');
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => Toast.success('Скопировано'));
+}
+
+loadNodes();
+</script>
+{% endblock %}

@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}Аудит — Erevnitis{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Журнал аудита</h1>
+    <p class="page-subtitle">История всех действий в системе</p>
+  </div>
+  <button class="btn btn-ghost btn-sm" onclick="loadAudit()">
+    <i class="bi bi-arrow-clockwise"></i> Обновить
+  </button>
+</div>
+
+<div class="card" style="margin-bottom:1.25rem">
+  <div class="card-body" style="padding:.875rem 1.25rem">
+    <div class="flex gap-3 items-center flex-wrap">
+      <div class="filter-bar">
+        <button class="filter-btn active" onclick="setFilter(this,'')">Все</button>
+        <button class="filter-btn" onclick="setFilter(this,'CREATE')">Создание</button>
+        <button class="filter-btn" onclick="setFilter(this,'UPDATE')">Обновление</button>
+        <button class="filter-btn" onclick="setFilter(this,'DELETE')">Удаление</button>
+      </div>
+      <div class="filter-bar">
+        <button class="filter-btn active" onclick="setResType(this,'')">Все ресурсы</button>
+        <button class="filter-btn" onclick="setResType(this,'node')">Серверы</button>
+        <button class="filter-btn" onclick="setResType(this,'incident')">Инциденты</button>
+        <button class="filter-btn" onclick="setResType(this,'user')">Пользователи</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrapper">
+    <table class="ev-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Действие</th>
+          <th>Ресурс</th>
+          <th>Пользователь</th>
+          <th>Детали</th>
+          <th>Время</th>
+        </tr>
+      </thead>
+      <tbody id="audit-tbody">
+        <tr class="loading-row"><td colspan="6">
+          <div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:2rem">
+            <div class="spinner"></div> Загрузка...
+          </div>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+Auth.requireAuth();
+if (Auth.getRole() !== 'admin') window.location.href = '/dashboard';
+
+let actionFilter = '';
+let resTypeFilter = '';
+
+function setFilter(btn, f) {
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    if (!b.onclick?.toString().includes('setResType')) b.classList.remove('active');
+  });
+  btn.classList.add('active');
+  actionFilter = f;
+  loadAudit();
+}
+
+function setResType(btn, f) {
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    if (b.onclick?.toString().includes('setResType')) b.classList.remove('active');
+  });
+  btn.classList.add('active');
+  resTypeFilter = f;
+  loadAudit();
+}
+
+const ACTION_COLORS = {
+  CREATE: 'badge-resolved', UPDATE: 'badge-open', DELETE: 'badge-critical'
+};
+
+async function loadAudit() {
+  const tbody = document.getElementById('audit-tbody');
+  let params = '?limit=200';
+  if (actionFilter)  params += `&action=${actionFilter}`;
+  if (resTypeFilter) params += `&resource_type=${resTypeFilter}`;
+
+  try {
+    const data = await api.audit.list(params);
+    if (!data.length) {
+      tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state" style="padding:2rem">
+        <i class="bi bi-journal-x"></i><h3>Записей нет</h3>
+      </div></td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = data.map(r => {
+      let details = '';
+      if (r.details) {
+        try {
+          const parsed = JSON.parse(r.details);
+          details = `<span class="font-mono" style="font-size:.75rem;color:#64748b">${JSON.stringify(parsed).slice(0, 80)}${JSON.stringify(parsed).length > 80 ? '…' : ''}</span>`;
+        } catch {
+          details = `<span class="font-mono" style="font-size:.75rem;color:#64748b">${r.details.slice(0,80)}</span>`;
+        }
+      }
+
+      return `<tr>
+        <td class="font-mono" style="color:#94a3b8;font-size:.8rem">${r.id}</td>
+        <td><span class="badge ${ACTION_COLORS[r.action] || 'badge-unknown'}">${r.action}</span></td>
+        <td>
+          <span style="font-weight:600;text-transform:capitalize">${r.resource_type}</span>
+          ${r.resource_id ? `<span class="font-mono" style="color:#94a3b8;font-size:.8rem"> #${r.resource_id}</span>` : ''}
+        </td>
+        <td style="color:#475569">${r.user_id ? `user#${r.user_id}` : '<span class="badge badge-unknown">system</span>'}</td>
+        <td>${details || '—'}</td>
+        <td style="font-size:.8rem;color:#64748b;white-space:nowrap">${fmt.date(r.created_at)}</td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#dc2626;padding:2rem">${e.message}</td></tr>`;
+  }
+}
+
+loadAudit();
+</script>
+{% endblock %}

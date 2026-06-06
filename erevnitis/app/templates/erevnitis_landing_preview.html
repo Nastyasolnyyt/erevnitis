@@ -1,0 +1,182 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Sora',system-ui,sans-serif}
+.wrap{background:linear-gradient(145deg,#edfaf1 0%,#f5fdf7 40%,#fff 70%,#f0fbf3 100%);border-radius:12px;overflow:hidden;width:100%;min-height:460px;position:relative}
+.dots{position:absolute;inset:0;background-image:radial-gradient(circle,rgba(0,180,60,.12) 1px,transparent 1px);background-size:24px 24px;opacity:.6;pointer-events:none}
+.radials{position:absolute;inset:0;background:radial-gradient(ellipse 60% 50% at 15% 20%,rgba(0,200,83,.12) 0%,transparent 60%),radial-gradient(ellipse 50% 60% at 85% 75%,rgba(105,240,174,.09) 0%,transparent 60%);pointer-events:none}
+.navbar{display:flex;align-items:center;padding:0 1.25rem;height:44px;background:rgba(255,255,255,.65);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.8);position:relative;z-index:2;gap:.75rem}
+.brand{display:flex;align-items:center;gap:7px;text-decoration:none}
+.brand-icon{width:26px;height:26px;background:linear-gradient(135deg,#00c853,#69f0ae);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:.7rem;color:#fff;box-shadow:0 2px 8px rgba(0,200,83,.3)}
+.brand-text{display:flex;flex-direction:column;line-height:1.1}
+.brand-name{font-size:.75rem;font-weight:700;color:#0d2e14}
+.brand-sub{font-size:.5rem;font-weight:600;color:#6b9e74;text-transform:uppercase;letter-spacing:.6px}
+.nav-links{display:flex;gap:.1rem;margin-left:1.25rem}
+.nav-links a{font-size:.7rem;font-weight:500;color:#4a6e50;text-decoration:none;padding:.2rem .5rem;border-radius:5px}
+.nav-links a:hover{background:rgba(0,200,83,.1)}
+.btn-launch{margin-left:auto;background:rgba(255,255,255,.75);border:1.5px solid rgba(0,200,83,.3);border-radius:7px;padding:.25rem .7rem;font-size:.7rem;font-weight:600;color:#0d6e30;cursor:pointer;text-decoration:none}
+.hero{display:grid;grid-template-columns:1fr 220px;gap:1rem;padding:1rem 1.25rem;position:relative;z-index:1}
+.info-card{background:rgba(255,255,255,.6);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.8);border-radius:14px;padding:1rem 1.125rem;max-width:230px;box-shadow:0 4px 20px rgba(0,150,60,.07)}
+.info-card h2{font-size:.8rem;font-weight:700;color:#0d2e14;margin-bottom:.4rem;letter-spacing:-.2px}
+.info-card p{font-size:.65rem;line-height:1.55;color:#4a6e50}
+.hero-left{position:relative}
+.orb-area{position:absolute;right:-10px;top:-10px;width:185px;height:185px;pointer-events:none}
+.orb-outer{width:140px;height:140px;position:absolute;top:50%;left:50%;transform:translate(-50%,-52%);border-radius:50%;background:radial-gradient(circle at 35% 35%,rgba(255,255,255,.9) 0%,rgba(200,255,220,.7) 20%,rgba(105,240,174,.5) 45%,rgba(0,200,83,.4) 65%,rgba(0,150,60,.6) 100%);box-shadow:0 12px 40px rgba(0,180,60,.3),inset 0 -12px 28px rgba(0,120,40,.2),inset 0 8px 20px rgba(255,255,255,.4);animation:float 5s ease-in-out infinite}
+.orb-outer::before{content:'';position:absolute;top:16%;left:20%;width:33%;height:28%;background:radial-gradient(ellipse,rgba(255,255,255,.9) 0%,transparent 70%);border-radius:50%;transform:rotate(-20deg)}
+.orb-inner{width:75px;height:75px;position:absolute;top:50%;left:50%;transform:translate(-40%,-58%);border-radius:50%;background:radial-gradient(circle at 38% 35%,rgba(255,255,255,.85) 0%,rgba(185,246,202,.7) 30%,rgba(0,200,83,.5) 70%,rgba(0,150,50,.7) 100%);box-shadow:0 6px 20px rgba(0,180,60,.35),inset 0 3px 10px rgba(255,255,255,.5);animation:float 5s ease-in-out infinite reverse}
+.orb-base{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);width:100px;height:25px;background:radial-gradient(ellipse,rgba(0,180,60,.2) 0%,transparent 70%);border-radius:50%;filter:blur(6px)}
+@keyframes float{0%,100%{transform:translate(-50%,-52%) translateY(0)}50%{transform:translate(-50%,-52%) translateY(-8px)}}
+.tags{display:flex;gap:.375rem;margin-top:1.5rem;flex-wrap:wrap}
+.tag{background:rgba(255,255,255,.65);border:1px solid rgba(255,255,255,.85);border-radius:99px;padding:.2rem .6rem;font-size:.65rem;font-weight:500;color:#2d5e38}
+.tag.active{background:rgba(0,200,83,.15);border-color:rgba(0,200,83,.4);color:#0a5e20}
+.headline{font-size:2.1rem;font-weight:800;line-height:1.08;letter-spacing:-1px;color:#0a1f0d;margin-top:.875rem}
+/* Right cards */
+.rcard{border-radius:12px;padding:.75rem .875rem;backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.8)}
+.rcard+.rcard{margin-top:.5rem}
+.card-core{background:linear-gradient(135deg,rgba(0,200,83,.2) 0%,rgba(105,240,174,.16) 50%,rgba(185,246,202,.22) 100%);box-shadow:0 3px 18px rgba(0,180,60,.1)}
+.card-mod{background:rgba(255,255,255,.62);box-shadow:0 3px 16px rgba(0,150,60,.07)}
+.card-wf{background:rgba(255,255,255,.58);box-shadow:0 3px 14px rgba(0,150,60,.06)}
+.r-title{font-size:.8rem;font-weight:700;color:#0d2e14;margin-bottom:.3rem}
+.r-sub{font-size:.8125rem;font-weight:700;color:#0a3d1a;margin-bottom:.25rem}
+.r-body{font-size:.65rem;line-height:1.5;color:#3a6040;margin-bottom:.5rem}
+.r-icons{float:right;display:flex;gap:4px;margin-top:-2px}
+.r-icon{width:20px;height:20px;border-radius:5px;background:rgba(255,255,255,.65);border:1px solid rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;font-size:.6rem;color:#2d7a40}
+.badges{display:flex;gap:.35rem;flex-wrap:wrap;align-items:center}
+.badge{display:flex;align-items:center;gap:3px;background:rgba(255,255,255,.65);border:1px solid rgba(200,240,210,.8);border-radius:6px;padding:.2rem .45rem;font-size:.6rem;font-weight:600;color:#1a5e2a}
+.chev{width:20px;height:20px;border-radius:50%;background:rgba(0,200,83,.15);border:1px solid rgba(0,200,83,.3);display:flex;align-items:center;justify-content:center;font-size:.55rem;color:#0a6e28;margin-left:auto}
+.wf-row{display:flex;align-items:center;gap:.5rem;margin:.4rem 0}
+.wf-srv{display:flex;flex-direction:column;gap:2px}
+.wf-b{height:4px;border-radius:2px;background:rgba(0,180,60,.22)}
+.wf-line-wrap{flex:1;position:relative;padding-top:14px}
+.wf-lbl{position:absolute;top:0;left:50%;transform:translateX(-50%);font-size:.55rem;font-weight:600;color:#3a7a48;white-space:nowrap}
+.wf-line{height:1.5px;background:linear-gradient(90deg,rgba(0,200,83,.4),rgba(0,200,83,.15));position:relative}
+.wf-d{width:6px;height:6px;border-radius:50%;border:1.5px solid #00c853;background:#fff;position:absolute;top:50%;transform:translateY(-50%)}
+.theme-row{display:flex;align-items:center;gap:.35rem;margin-top:.5rem}
+.theme-lbl{font-size:.6rem;font-weight:600;color:#6b9e74}
+.theme-sw{display:flex;background:rgba(255,255,255,.6);border:1px solid rgba(200,240,210,.8);border-radius:6px;overflow:hidden}
+.theme-o{padding:.15rem .5rem;font-size:.6rem;font-weight:600;color:#6b9e74;cursor:pointer}
+.theme-o.active{background:rgba(0,200,83,.2);color:#0a5e20}
+.nav-tabs{display:flex;gap:.35rem;margin-top:1rem}
+.ntab{background:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.8);border-radius:99px;padding:.2rem .65rem;font-size:.65rem;font-weight:500;color:#4a6e50;text-decoration:none}
+.ntab.active{background:rgba(0,200,83,.18);border-color:rgba(0,200,83,.4);color:#0a5e20;font-weight:600}
+</style>
+
+<div class="wrap">
+  <div class="dots"></div>
+  <div class="radials"></div>
+
+  <nav class="navbar">
+    <a href="#" class="brand">
+      <div class="brand-icon">⚡</div>
+      <div class="brand-text">
+        <span class="brand-name">Erevnitis</span>
+        <span class="brand-sub">SRE Panel</span>
+      </div>
+    </a>
+    <div class="nav-links">
+      <a href="#">About</a>
+      <a href="#">Modules</a>
+      <a href="#">Docs</a>
+      <a href="#">Community</a>
+    </div>
+    <a href="#" class="btn-launch">Launch Control Plane</a>
+  </nav>
+
+  <div class="hero">
+    <div class="hero-left">
+      <div style="position:relative;min-height:160px">
+        <div class="info-card">
+          <h2>Erevnitis: Convergent<br>SRE Panel</h2>
+          <p>A convergent SRE panel that unifies infrastructure monitoring and control in one web interface, reducing Mean Time To Resolution (MTTR) by eliminating context fragmentation for on-call engineers.</p>
+          <p style="color:#6b9e74;font-size:.6rem;margin-top:.35rem">Forget switching between Grafana, Slack, Jira, and SSH terminals.</p>
+        </div>
+
+        <div class="orb-area">
+          <div class="orb-outer">
+            <div class="orb-inner"></div>
+          </div>
+          <div class="orb-base"></div>
+        </div>
+      </div>
+
+      <div class="tags">
+        <span class="tag active">Observability</span>
+        <span class="tag">Control Plane</span>
+        <span class="tag">Incidents</span>
+      </div>
+
+      <div class="headline">
+        Unified Control<br>for Modern<br>Infrastructure
+      </div>
+
+      <div class="nav-tabs">
+        <a href="#" class="ntab active">Dashboard</a>
+        <a href="#" class="ntab">Nodes</a>
+        <a href="#" class="ntab">Incidents</a>
+        <a href="#" class="ntab">SLA</a>
+      </div>
+    </div>
+
+    <div class="hero-right">
+
+      <div class="rcard card-core">
+        <div class="r-title">
+          Core Concept
+          <span class="r-icons">
+            <span class="r-icon">🌐</span>
+            <span class="r-icon">⚙</span>
+          </span>
+        </div>
+        <div class="r-sub">Reduce Context Fragmentation…</div>
+        <div class="r-body">Eliminate switching between Grafana, Slack, Jira, and SSH — all telemetry and controls in one place.</div>
+        <div style="display:flex;gap:4px;margin-bottom:4px">
+          <div style="width:28px;height:28px;border-radius:7px;background:rgba(255,255,255,.7);border:1px solid rgba(200,240,210,.7);display:flex;align-items:center;justify-content:center;font-size:.75rem">🖥</div>
+          <div style="width:28px;height:28px;border-radius:7px;background:rgba(255,255,255,.7);border:1px solid rgba(200,240,210,.7);display:flex;align-items:center;justify-content:center;font-size:.75rem">⚙️</div>
+          <div style="width:28px;height:28px;border-radius:7px;background:rgba(255,255,255,.7);border:1px solid rgba(200,240,210,.7);display:flex;align-items:center;justify-content:center;font-size:.75rem">⊞</div>
+          <span class="chev" style="margin-left:auto;align-self:center">›</span>
+        </div>
+      </div>
+
+      <div class="rcard card-mod">
+        <div class="r-title">Key Modules</div>
+        <div class="r-body">Access Control, Telemetry &amp; Management, Automatic Alerts</div>
+        <div class="badges">
+          <div class="badge">🔒 RBAC</div>
+          <div class="badge">🖧 Node inventory</div>
+          <div class="badge">🔔 Incident webhook</div>
+          <span class="chev">›</span>
+        </div>
+      </div>
+
+      <div class="rcard card-wf">
+        <div class="r-title">SRE Workflow</div>
+        <div class="r-body">Incident Lifecycle &amp; MTTR. From firing to acknowledged to resolved…</div>
+        <div class="wf-row">
+          <div class="wf-srv">
+            <div class="wf-b" style="width:18px"></div>
+            <div class="wf-b" style="width:15px;opacity:.7"></div>
+            <div class="wf-b" style="width:21px;opacity:.5"></div>
+          </div>
+          <div class="wf-line-wrap">
+            <span class="wf-lbl">Incident</span>
+            <div class="wf-line">
+              <div class="wf-d" style="left:8px"></div>
+              <div class="wf-d" style="right:8px"></div>
+            </div>
+          </div>
+          <div style="width:7px;height:7px;border-radius:50%;border:1.5px solid #00c853;background:#fff"></div>
+          <span class="chev">›</span>
+        </div>
+        <div style="font-size:.6rem;color:#5a8060;margin-bottom:.4rem">MTTR</div>
+        <div class="theme-row">
+          <span class="theme-lbl">Theme:</span>
+          <div class="theme-sw">
+            <span class="theme-o active">Light</span>
+            <span class="theme-o">Dark</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>

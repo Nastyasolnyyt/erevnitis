@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+{% block title %}SLA / Error Budget — Erevnitis{% endblock %}
+
+{% block extra_css %}
+<style>
+.sla-ring-wrap { position:relative; width:120px; height:120px; flex-shrink:0; }
+.sla-ring-wrap svg { transform: rotate(-90deg); }
+.sla-ring-bg    { fill:none; stroke:rgba(34,197,94,.12); stroke-width:10; }
+.sla-ring-fill  { fill:none; stroke-width:10; stroke-linecap:round;
+                  transition: stroke-dashoffset 1s ease; }
+.sla-ring-label { position:absolute; inset:0; display:flex; flex-direction:column;
+                  align-items:center; justify-content:center; }
+.sla-ring-pct   { font-size:1.25rem; font-weight:700; line-height:1; }
+.sla-ring-sub   { font-size:.65rem; font-weight:600; text-transform:uppercase;
+                  letter-spacing:.5px; color:#94a3b8; margin-top:2px; }
+
+.budget-bar { height:8px; border-radius:99px; background:rgba(34,197,94,.1);
+              overflow:hidden; margin-top:.5rem; }
+.budget-fill{ height:100%; border-radius:99px; transition:width 1s ease; }
+
+.trend-chip { display:inline-flex; align-items:center; gap:5px;
+              padding:3px 10px; border-radius:99px; font-size:.75rem; font-weight:600; }
+.trend-improving { background:#f0fdf4; color:#15803d; border:1px solid #86efac; }
+.trend-degrading { background:#fef2f2; color:#991b1b; border:1px solid #fca5a5; }
+.trend-stable    { background:#f8fafc; color:#475569; border:1px solid #e2e8f0; }
+
+.node-sla-row { display:grid; grid-template-columns:1fr 160px 160px 120px 120px 100px;
+                gap:1rem; align-items:center; padding:.875rem 1.25rem;
+                border-bottom:1px solid rgba(34,197,94,.07); }
+.node-sla-row:last-child { border-bottom:none; }
+.node-sla-row:hover { background:rgba(34,197,94,.04); }
+
+.detail-panel { display:none; }
+.detail-panel.open { display:block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">SLA & Error Budget</h1>
+    <p class="page-subtitle">Доступность серверов и остаток бюджета ошибок</p>
+  </div>
+  <div class="flex gap-2 items-center">
+    <label style="font-size:.8rem;font-weight:600;color:#64748b">SLO цель:</label>
+    <select id="slo-select" class="form-control" style="width:auto" onchange="loadAll()">
+      <option value="99">99.0%</option>
+      <option value="99.5">99.5%</option>
+      <option value="99.9" selected>99.9%</option>
+      <option value="99.95">99.95%</option>
+    </select>
+    <label style="font-size:.8rem;font-weight:600;color:#64748b">Период:</label>
+    <select id="days-select" class="form-control" style="width:auto" onchange="loadAll()">
+      <option value="7">7 дней</option>
+      <option value="30" selected>30 дней</option>
+      <option value="90">90 дней</option>
+    </select>
+    <button class="btn btn-ghost btn-sm" onclick="loadAll()">
+      <i class="bi bi-arrow-clockwise"></i>
+    </button>
+  </div>
+</div>
+
+<!-- Summary cards -->
+<div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:1.5rem">
+  <div class="card stat-card">
+    <div class="stat-icon green"><i class="bi bi-shield-check"></i></div>
+    <div class="stat-value" id="s-avg-avail">—</div>
+    <div class="stat-label">Средний Uptime</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-icon green"><i class="bi bi-check-circle"></i></div>
+    <div class="stat-value" id="s-meets-slo">—</div>
+    <div class="stat-label">Соответствуют SLO</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-icon red"><i class="bi bi-exclamation-circle"></i></div>
+    <div class="stat-value" id="s-violating">—</div>
+    <div class="stat-label">Нарушают SLO</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-icon amber"><i class="bi bi-clock-history"></i></div>
+    <div class="stat-value" id="s-total-down">—</div>
+    <div class="stat-label">Суммарный простой (мин)</div>
+  </div>
+</div>
+
+<!-- Nodes table -->
+<div class="card" style="margin-bottom:1.5rem">
+  <div class="card-header">
+    <span class="card-title"><i class="bi bi-table me-2"></i>Доступность по серверам</span>
+  </div>
+
+  <!-- Header row -->
+  <div style="padding:.6rem 1.25rem;border-bottom:1px solid rgba(34,197,94,.1);
+              display:grid;grid-template-columns:1fr 160px 160px 120px 120px 100px;
+              gap:1rem;font-size:.7rem;font-weight:700;text-transform:uppercase;
+              letter-spacing:.5px;color:#94a3b8;background:rgba(34,197,94,.04)">
+    <span>Сервер</span>
+    <span>Доступность</span>
+    <span>Error Budget</span>
+    <span>Простой (мин)</span>
+    <span>Инцидентов</span>
+    <span>Тренд</span>
+  </div>
+
+  <div id="sla-list">
+    <div style="padding:2rem;text-align:center;color:#94a3b8">
+      <div class="spinner" style="margin:0 auto 8px"></div> Загрузка...
+    </div>
+  </div>
+</div>
+
+<!-- Detail panel - SLA of selected node -->
+<div id="detail-section" style="display:none">
+  <div class="page-header" style="margin-bottom:1rem">
+    <h2 style="font-size:1.1rem;font-weight:700" id="detail-title">—</h2>
+    <button class="btn btn-ghost btn-sm" onclick="closeDetail()">
+      <i class="bi bi-x-lg"></i> Закрыть
+    </button>
+  </div>
+
+  <div style="display:grid;grid-template-columns:280px 1fr;gap:1.25rem;margin-bottom:1.25rem">
+
+    <!-- Ring chart -->
+    <div class="card" style="padding:1.5rem;display:flex;flex-direction:column;align-items:center;gap:1rem">
+      <div class="sla-ring-wrap">
+        <svg viewBox="0 0 120 120" width="120" height="120">
+          <circle class="sla-ring-bg"   cx="60" cy="60" r="50"/>
+          <circle class="sla-ring-fill" cx="60" cy="60" r="50"
+                  id="ring-circle"
+                  stroke="#22c55e"
+                  stroke-dasharray="314"
+                  stroke-dashoffset="314"/>
+        </svg>
+        <div class="sla-ring-label">
+          <span class="sla-ring-pct" id="ring-pct">—</span>
+          <span class="sla-ring-sub">uptime</span>
+        </div>
+      </div>
+      <div style="text-align:center">
+        <div id="detail-slo-status" style="font-size:.875rem;font-weight:600"></div>
+        <div id="detail-trend" style="margin-top:.5rem"></div>
+      </div>
+    </div>
+
+    <!-- Stats grid -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+      <div class="card stat-card" style="padding:1.25rem">
+        <div class="stat-label">Время простоя</div>
+        <div class="stat-value" id="d-downtime" style="font-size:1.5rem;margin-top:.5rem">—</div>
+        <div style="font-size:.78rem;color:#94a3b8;margin-top:2px">минут</div>
+      </div>
+      <div class="card stat-card" style="padding:1.25rem">
+        <div class="stat-label">MTTR</div>
+        <div class="stat-value" id="d-mttr" style="font-size:1.5rem;margin-top:.5rem">—</div>
+        <div style="font-size:.78rem;color:#94a3b8;margin-top:2px">минут (среднее)</div>
+      </div>
+      <div class="card" style="padding:1.25rem">
+        <div class="stat-label">Error Budget</div>
+        <div style="margin-top:.75rem">
+          <div class="flex justify-between" style="font-size:.8rem;margin-bottom:.25rem">
+            <span id="d-budget-consumed">0%</span>
+            <span id="d-budget-remaining" style="color:#15803d"></span>
+          </div>
+          <div class="budget-bar">
+            <div class="budget-fill" id="d-budget-bar" style="width:0%"></div>
+          </div>
+          <div id="d-budget-status" style="font-size:.78rem;margin-top:.5rem"></div>
+        </div>
+      </div>
+      <div class="card stat-card" style="padding:1.25rem">
+        <div class="stat-label">Инцидентов</div>
+        <div style="margin-top:.5rem">
+          <span class="stat-value" id="d-inc-total" style="font-size:1.5rem">—</span>
+          <span style="font-size:.8rem;color:#94a3b8"> всего</span><br>
+          <span id="d-inc-resolved" style="font-size:.8rem;color:#15803d"></span>
+          <span id="d-inc-open" style="font-size:.8rem;color:#dc2626;margin-left:.5rem"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Incidents timeline -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">История инцидентов за период</span>
+    </div>
+    <div class="table-wrapper">
+      <table class="ev-table">
+        <thead>
+          <tr><th>#</th><th>Название</th><th>Критичность</th>
+              <th>Статус</th><th>Начало</th><th>Длительность (мин)</th></tr>
+        </thead>
+        <tbody id="detail-incidents"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+Auth.requireAuth();
+
+const BUDGET_COLORS = {
+  healthy:   '#22c55e',
+  warning:   '#f59e0b',
+  critical:  '#ef4444',
+  exhausted: '#991b1b',
+};
+
+async function loadAll() {
+  const slo  = document.getElementById('slo-select').value;
+  const days = document.getElementById('days-select').value;
+
+  try {
+    const data = await api.get(`/api/v1/analytics/sla?days=${days}&slo_target=${slo}`);
+    renderSummary(data.summary);
+    renderList(data.nodes, slo, days);
+  } catch (e) {
+    Toast.error('Ошибка загрузки SLA: ' + e.message);
+  }
+}
+
+function renderSummary(s) {
+  document.getElementById('s-avg-avail').textContent  = s.avg_availability?.toFixed(2) + '%';
+  document.getElementById('s-meets-slo').textContent  = s.meets_slo ?? '—';
+  document.getElementById('s-violating').textContent  = s.violating  ?? '—';
+
+  // total downtime
+  fetch('/api/v1/analytics/sla?' + new URLSearchParams({
+    days: document.getElementById('days-select').value,
+    slo_target: document.getElementById('slo-select').value,
+  }), { headers: { Authorization: 'Bearer ' + Auth.getToken() } })
+    .then(r => r.json())
+    .then(d => {
+      const total = d.nodes.reduce((acc, n) => acc + n.downtime_min, 0);
+      document.getElementById('s-total-down').textContent = Math.round(total);
+    }).catch(() => {});
+}
+
+function renderList(nodes, slo, days) {
+  const el = document.getElementById('sla-list');
+  if (!nodes.length) {
+    el.innerHTML = '<div class="empty-state"><i class="bi bi-server"></i><h3>Нет серверов</h3></div>';
+    return;
+  }
+
+  el.innerHTML = nodes.map(n => {
+    const avail  = n.availability_pct.toFixed(3);
+    const color  = n.meets_slo ? '#22c55e' : '#ef4444';
+    const budget = n.error_budget_pct;
+    const bcolor = budget < 50 ? '#22c55e' : budget < 80 ? '#f59e0b' : '#ef4444';
+
+    const trendHtml = `<span class="trend-chip trend-${n.trend || 'stable'}">
+      <i class="bi bi-${n.trend === 'improving' ? 'arrow-up' : n.trend === 'degrading' ? 'arrow-down' : 'dash'}"></i>
+      ${n.trend === 'improving' ? 'Улучшается' : n.trend === 'degrading' ? 'Ухудшается' : 'Стабильно'}
+    </span>`;
+
+    return `
+    <div class="node-sla-row" onclick="loadDetail(${n.node_id},'${n.hostname}',${slo},${days})"
+         style="cursor:pointer">
+      <div>
+        <div style="font-weight:600;font-family:var(--font-mono)">${n.hostname}</div>
+        <div>${fmt.onlineBadge(n.status)}</div>
+      </div>
+      <div>
+        <div style="font-size:1.125rem;font-weight:700;color:${color}">${avail}%</div>
+        <div style="font-size:.75rem;color:${n.meets_slo ? '#15803d' : '#dc2626'}">
+          ${n.meets_slo ? '✓ SLO выполнен' : '✗ SLO нарушен'}
+        </div>
+      </div>
+      <div>
+        <div style="font-size:.875rem;font-weight:600;color:${bcolor}">${budget.toFixed(1)}% использовано</div>
+        <div class="budget-bar" style="margin-top:.4rem;width:120px">
+          <div class="budget-fill" style="width:${Math.min(100,budget)}%;background:${bcolor}"></div>
+        </div>
+      </div>
+      <div style="font-size:.9rem;color:#475569">${n.downtime_min.toFixed(0)}</div>
+      <div style="font-size:.9rem;color:#475569">${n.incidents_total}</div>
+      <div>${trendHtml}</div>
+    </div>`;
+  }).join('');
+}
+
+async function loadDetail(nodeId, hostname, slo, days) {
+  document.getElementById('detail-section').style.display = 'block';
+  document.getElementById('detail-title').textContent = `Детали SLA: ${hostname}`;
+  document.getElementById('ring-pct').textContent = '…';
+
+  try {
+    const d = await api.get(
+      `/api/v1/analytics/sla/${nodeId}?days=${days}&slo_target=${slo}`
+    );
+    renderDetail(d);
+    document.getElementById('detail-section').scrollIntoView({ behavior: 'smooth' });
+  } catch (e) {
+    Toast.error(e.message);
+  }
+}
+
+function renderDetail(d) {
+  // Ring chart
+  const pct    = d.availability_pct;
+  const radius = 50;
+  const circ   = 2 * Math.PI * radius;
+  const offset = circ - (pct / 100) * circ;
+  const color  = d.meets_slo ? '#22c55e' : '#ef4444';
+
+  document.getElementById('ring-pct').textContent     = pct.toFixed(2) + '%';
+  document.getElementById('ring-pct').style.color     = color;
+  document.getElementById('ring-circle').style.stroke = color;
+  document.getElementById('ring-circle').style.strokeDashoffset = offset;
+
+  document.getElementById('detail-slo-status').innerHTML = d.meets_slo
+    ? '<span style="color:#15803d"><i class="bi bi-shield-check me-1"></i>SLO выполнен</span>'
+    : '<span style="color:#dc2626"><i class="bi bi-shield-x me-1"></i>SLO нарушен</span>';
+
+  const trendMap = { improving: 'trend-improving', degrading: 'trend-degrading', stable: 'trend-stable' };
+  document.getElementById('detail-trend').innerHTML =
+    `<span class="trend-chip ${trendMap[d.trend] || 'trend-stable'}">
+      ${d.trend === 'improving' ? '↑ Улучшается' : d.trend === 'degrading' ? '↓ Ухудшается' : '→ Стабильно'}
+    </span>`;
+
+  // Stats
+  document.getElementById('d-downtime').textContent   = d.downtime_minutes.toFixed(1);
+  document.getElementById('d-mttr').textContent       = d.mttr_minutes?.toFixed(1) ?? '—';
+  document.getElementById('d-inc-total').textContent  = d.incidents_total;
+  document.getElementById('d-inc-resolved').textContent = `${d.incidents_resolved} решено`;
+  document.getElementById('d-inc-open').textContent   = d.incidents_open > 0 ? `${d.incidents_open} открыто` : '';
+
+  // Error budget
+  const eb = d.error_budget;
+  const bcolor = BUDGET_COLORS[eb.status] || '#22c55e';
+  document.getElementById('d-budget-consumed').textContent = `${eb.consumed_pct}% использовано`;
+  document.getElementById('d-budget-remaining').textContent = `${eb.remaining_min.toFixed(0)} мин осталось`;
+  document.getElementById('d-budget-bar').style.cssText =
+    `width:${Math.min(100, eb.consumed_pct)}%;background:${bcolor}`;
+  const statusLabels = {
+    healthy:  '✅ Бюджет в норме',
+    warning:  '⚠️ Бюджет расходуется',
+    critical: '🔴 Бюджет почти исчерпан',
+    exhausted:'💀 Бюджет исчерпан — SLO нарушен',
+  };
+  document.getElementById('d-budget-status').innerHTML =
+    `<span style="color:${bcolor}">${statusLabels[eb.status] || ''}</span>`;
+
+  // Incidents table
+  const tbody = document.getElementById('detail-incidents');
+  if (!d.incidents.length) {
+    tbody.innerHTML = `<tr><td colspan="6">
+      <div class="empty-state" style="padding:1.5rem">
+        <i class="bi bi-check-circle"></i><h3>Инцидентов не было</h3>
+      </div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = d.incidents.map(inc => `
+    <tr>
+      <td class="font-mono" style="color:#94a3b8">#${inc.id}</td>
+      <td style="font-weight:600">${inc.title}</td>
+      <td>${fmt.severityBadge(inc.severity)}</td>
+      <td>${fmt.statusBadge(inc.status)}</td>
+      <td style="font-size:.8rem;color:#64748b">${fmt.date(inc.started_at)}</td>
+      <td style="font-size:.875rem;font-weight:600;color:${inc.duration_min > 60 ? '#dc2626' : '#475569'}">
+        ${inc.duration_min.toFixed(0)}
+      </td>
+    </tr>
+  `).join('');
+}
+
+function closeDetail() {
+  document.getElementById('detail-section').style.display = 'none';
+}
+
+loadAll();
+</script>
+{% endblock %}
