@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,6 +12,220 @@
 
   <!-- Design System -->
   <link rel="stylesheet" href="/static/css/main.css">
+
+  <!-- ═══ ТЁМНАЯ ТЕМА: применяем ДО рендера, чтобы не было мигания ══════════ -->
+  <script>
+    (function() {
+      var saved = localStorage.getItem('ev_theme') || 'light';
+      document.documentElement.setAttribute('data-theme', saved);
+    })();
+  </script>
+
+  <!-- ═══ CSS-переменные для тёмной темы ══════════════════════════════════════ -->
+  <style>
+    /* Light theme (default) — уже задан в main.css */
+
+    /* Dark theme overrides */
+    [data-theme="dark"] {
+      --bg-page:        #0a1a0d;
+      --bg-sidebar:     rgba(10, 26, 13, 0.85);
+      --bg-card:        rgba(18, 38, 20, 0.82);
+      --glass-bg:       rgba(18, 38, 20, 0.82);
+      --glass-bg-hover: rgba(25, 50, 28, 0.95);
+      --glass-border:   rgba(34, 197, 94, 0.22);
+      --glass-shadow:   0 8px 32px rgba(0, 0, 0, 0.45);
+      --border-color:   rgba(34, 197, 94, 0.20);
+      --text-primary:   #e8f5e9;
+      --text-secondary: #a5d6a7;
+      --text-muted:     #4caf50;
+      --text-green:     #81c784;
+      --green-50:       #0a1a0d;
+      --green-100:      #122614;
+      --green-200:      #1b3d1e;
+      --green-400:      #2e7d32;
+      --green-500:      #388e3c;
+      --green-600:      #43a047;
+      --green-700:      #4caf50;
+      --critical-bg:    #2d1515; --critical-text: #f48fb1; --critical-border: #7f1d1d;
+      --high-bg:        #2d1f0a; --high-text:     #ffcc80; --high-border:     #7c3a00;
+      --medium-bg:      #2d2a05; --medium-text:   #fff176; --medium-border:   #7c6d00;
+      --low-bg:         #0a1a0d; --low-text:      #a5d6a7; --low-border:      #1b3d1e;
+      --open-bg:        #0d1f3d; --open-text:     #90caf9; --open-border:     #1a3a6d;
+      --investigating-bg: #2d1a0a; --investigating-text: #ffb74d; --investigating-border: #6d3a00;
+      --resolved-bg:    #0a1a0d; --resolved-text: #a5d6a7; --resolved-border: #1b3d1e;
+    }
+
+    [data-theme="dark"] body {
+      background: linear-gradient(145deg, #0a1a0d 0%, #0d2211 35%, #111 70%, #0a0f0b 100%);
+      color: var(--text-primary);
+    }
+
+    [data-theme="dark"] .navbar {
+      background: rgba(10, 26, 13, 0.88);
+      border-bottom-color: rgba(34, 197, 94, 0.20);
+    }
+
+    [data-theme="dark"] .sidebar {
+      background: rgba(10, 26, 13, 0.88);
+      border-right-color: rgba(34, 197, 94, 0.18);
+    }
+
+    [data-theme="dark"] .card {
+      background: var(--bg-card);
+      border-color: var(--glass-border);
+    }
+
+    [data-theme="dark"] .navbar-brand,
+    [data-theme="dark"] .page-title,
+    [data-theme="dark"] .card-title,
+    [data-theme="dark"] .stat-value {
+      color: var(--text-primary);
+    }
+
+    [data-theme="dark"] .page-subtitle,
+    [data-theme="dark"] .stat-label,
+    [data-theme="dark"] .text-muted {
+      color: var(--text-muted) !important;
+    }
+
+    [data-theme="dark"] .ev-table thead th {
+      background: rgba(34, 197, 94, 0.08);
+      color: var(--text-secondary);
+      border-bottom-color: var(--border-color);
+    }
+
+    [data-theme="dark"] .ev-table tbody td {
+      color: var(--text-primary);
+      border-bottom-color: rgba(34, 197, 94, 0.08);
+    }
+
+    [data-theme="dark"] .ev-table tbody tr:hover {
+      background: rgba(34, 197, 94, 0.06);
+    }
+
+    [data-theme="dark"] .form-control {
+      background: rgba(18, 38, 20, 0.9);
+      border-color: var(--glass-border);
+      color: var(--text-primary);
+    }
+
+    [data-theme="dark"] .form-control:focus {
+      background: rgba(25, 50, 28, 0.95);
+      border-color: var(--green-600);
+      box-shadow: 0 0 0 3px rgba(56, 142, 60, 0.15);
+    }
+
+    [data-theme="dark"] .filter-btn {
+      background: rgba(18, 38, 20, 0.7);
+      color: var(--text-secondary);
+      border-color: var(--border-color);
+    }
+
+    [data-theme="dark"] .filter-btn:hover {
+      background: rgba(34, 197, 94, 0.12);
+      color: var(--text-primary);
+    }
+
+    [data-theme="dark"] .filter-btn.active {
+      background: var(--green-500);
+      border-color: var(--green-500);
+      color: #fff;
+    }
+
+    [data-theme="dark"] .modal {
+      background: #122614;
+      color: var(--text-primary);
+    }
+
+    [data-theme="dark"] .modal-header,
+    [data-theme="dark"] .modal-footer {
+      border-color: var(--border-color);
+    }
+
+    [data-theme="dark"] .sidebar-link {
+      color: var(--text-secondary);
+    }
+
+    [data-theme="dark"] .sidebar-link:hover {
+      background: rgba(34, 197, 94, 0.10);
+      color: var(--text-primary);
+    }
+
+    [data-theme="dark"] .sidebar-link.active {
+      background: rgba(34, 197, 94, 0.16);
+      color: var(--text-primary);
+    }
+
+    [data-theme="dark"] .btn-ghost {
+      color: var(--text-secondary);
+    }
+
+    [data-theme="dark"] .btn-ghost:hover {
+      background: rgba(34, 197, 94, 0.10);
+      color: var(--text-primary);
+    }
+
+    [data-theme="dark"] .user-pill {
+      background: rgba(18, 38, 20, 0.8);
+      border-color: var(--border-color);
+      color: var(--text-primary);
+    }
+
+    [data-theme="dark"] .empty-state {
+      color: var(--text-muted);
+    }
+
+    /* Theme toggle button in navbar */
+    .theme-toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: .3rem .7rem;
+      border-radius: 99px;
+      background: rgba(34, 197, 94, 0.08);
+      border: 1.5px solid var(--glass-border);
+      color: var(--text-secondary);
+      font-size: .75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s ease;
+      font-family: var(--font-sans);
+    }
+
+    .theme-toggle-btn:hover {
+      background: rgba(34, 197, 94, 0.16);
+      color: var(--text-primary);
+    }
+
+    /* Toggle track */
+    .theme-track {
+      width: 32px; height: 18px;
+      background: var(--green-200);
+      border-radius: 99px;
+      position: relative;
+      transition: background .2s;
+      flex-shrink: 0;
+    }
+
+    [data-theme="dark"] .theme-track {
+      background: var(--green-500);
+    }
+
+    .theme-track::after {
+      content: '';
+      position: absolute;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: white;
+      top: 3px; left: 3px;
+      transition: transform .2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,.2);
+    }
+
+    [data-theme="dark"] .theme-track::after {
+      transform: translateX(14px);
+    }
+  </style>
 
   {% block extra_css %}{% endblock %}
 </head>
@@ -30,6 +244,14 @@
     <a href="/docs" class="btn btn-ghost btn-sm" target="_blank" title="API Docs">
       <i class="bi bi-code-slash"></i> API
     </a>
+
+    <!-- ═══ Переключатель темы ══════════════════════════════ -->
+    <button class="theme-toggle-btn" onclick="toggleTheme()" id="theme-btn" title="Переключить тему">
+      <span id="theme-icon">☀️</span>
+      <div class="theme-track"></div>
+      <span id="theme-label">Light</span>
+    </button>
+
     <div id="user-pill" class="user-pill"></div>
     <button class="btn btn-ghost btn-icon btn-sm" onclick="Auth.logout()" title="Выйти">
       <i class="bi bi-box-arrow-right"></i>
@@ -83,25 +305,80 @@
 
 </div>
 
-<!-- ── Toast container (injected by JS) ────────────────────── -->
-
 <!-- Scripts -->
 <script src="/static/js/api.js"></script>
 {% block scripts %}{% endblock %}
 
 <script>
-// Load open incident count for sidebar badge
-(async () => {
+// ═══ ТЕМА: синхронизация на всех страницах ════════════════
+function toggleTheme() {
+  var cur = document.documentElement.getAttribute('data-theme');
+  applyTheme(cur === 'dark' ? 'light' : 'dark');
+}
+
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem('ev_theme', t);
+  var icon  = document.getElementById('theme-icon');
+  var label = document.getElementById('theme-label');
+  if (icon)  icon.textContent  = t === 'dark' ? '🌙' : '☀️';
+  if (label) label.textContent = t === 'dark' ? 'Dark' : 'Light';
+}
+
+// Применяем сохранённую тему (на случай если inline-скрипт в <head> не успел)
+(function() {
+  var saved = localStorage.getItem('ev_theme') || 'light';
+  applyTheme(saved);
+})();
+
+// ═══ Navbar: имя пользователя ════════════════════════════
+document.addEventListener('DOMContentLoaded', function() {
+  var username = Auth.getUsername();
+  var role     = Auth.getRole();
+
+  var userPill = document.getElementById('user-pill');
+  if (userPill && username) {
+    var initials = username.slice(0, 2).toUpperCase();
+    userPill.innerHTML =
+      '<div class="user-avatar">' + initials + '</div>' +
+      '<span>' + username + '</span>' +
+      '<span class="text-muted" style="font-size:.75rem">' + role + '</span>';
+  }
+
+  // Скрываем кнопки для viewer
+  if (role === 'viewer') {
+    document.querySelectorAll('.role-write').forEach(function(el) {
+      el.style.display = 'none';
+    });
+  }
+  if (role !== 'admin') {
+    document.querySelectorAll('.role-admin').forEach(function(el) {
+      el.style.display = 'none';
+    });
+  }
+
+  // Активная ссылка в сайдбаре
+  var path = window.location.pathname;
+  document.querySelectorAll('.sidebar-link').forEach(function(link) {
+    var href = link.getAttribute('href');
+    if (href && (path === href || (href !== '/' && path.startsWith(href)))) {
+      link.classList.add('active');
+    }
+  });
+});
+
+// ═══ Счётчик открытых инцидентов в сайдбаре ═════════════
+(async function() {
   if (!Auth.isLoggedIn()) return;
   try {
-    const stats = await api.incidents.stats();
-    const count = (stats?.open || 0) + (stats?.investigating || 0);
-    const badge = document.getElementById('sidebar-inc-count');
+    var stats = await api.incidents.stats();
+    var count = (stats.open || 0) + (stats.investigating || 0);
+    var badge = document.getElementById('sidebar-inc-count');
     if (badge && count > 0) {
       badge.textContent = count;
       badge.style.display = '';
     }
-  } catch {}
+  } catch(e) {}
 })();
 </script>
 

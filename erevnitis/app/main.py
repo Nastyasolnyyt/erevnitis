@@ -64,6 +64,11 @@ def system_metrics():
     return metrics.get_summary()
 
 # Web UI
+
+@app.get("/", response_class=HTMLResponse)
+async def root(request: Request):
+    return templates.TemplateResponse("landing.html", {"request": request})
+
 @app.get("/",          response_class=HTMLResponse)
 async def root(): return RedirectResponse(url="/dashboard")
 

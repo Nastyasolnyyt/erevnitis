@@ -1,17 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Dashboard — Erevnitis<!-- SLA Summary on dashboard -->
-<div class="card" style="margin-top:1.25rem">
-  <div class="card-header">
-    <span class="card-title"><i class="bi bi-shield-check me-2 text-success"></i>SLA Overview (30 дней, SLO 99.9%)</span>
-    <a href="/sla" class="btn btn-ghost btn-sm">Подробнее <i class="bi bi-arrow-right"></i></a>
-  </div>
-  <div id="dash-sla">
-    <div class="loading-row" style="padding:1.5rem;text-align:center;color:#94a3b8">
-      <div class="spinner" style="margin:0 auto 8px"></div>Загрузка SLA...
-    </div>
-  </div>
-</div>
-{% endblock %}
+{% block title %}Dashboard — Erevnitis{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -93,7 +81,8 @@
   </div>
 
 </div>
-<!-- SLA Summary on dashboard -->
+
+<!-- SLA Summary -->
 <div class="card" style="margin-top:1.25rem">
   <div class="card-header">
     <span class="card-title"><i class="bi bi-shield-check me-2 text-success"></i>SLA Overview (30 дней, SLO 99.9%)</span>
@@ -112,14 +101,20 @@
 Auth.requireAuth();
 
 async function loadAll() {
-  await Promise.all([loadNodeStats(), loadIncidentStats(), loadRecentIncidents(), loadNodesStatus()]);
+  await Promise.all([
+    loadNodeStats(),
+    loadIncidentStats(),
+    loadRecentIncidents(),
+    loadNodesStatus(),
+    loadDashSLA()
+  ]);
 }
 
 async function loadNodeStats() {
   try {
     const d = await api.nodes.stats();
-    document.getElementById('s-total-nodes').textContent  = d.total   ?? '—';
-    document.getElementById('s-online-nodes').textContent = d.online  ?? '—';
+    document.getElementById('s-total-nodes').textContent   = d.total   ?? '—';
+    document.getElementById('s-online-nodes').textContent  = d.online  ?? '—';
     document.getElementById('s-offline-nodes').textContent = d.offline ?? '—';
   } catch {}
 }
@@ -127,17 +122,16 @@ async function loadNodeStats() {
 async function loadIncidentStats() {
   try {
     const d = await api.incidents.stats();
-    document.getElementById('s-critical').textContent     = d.critical     ?? '—';
-    document.getElementById('s-open').textContent         = d.open         ?? '—';
-    document.getElementById('s-investigating').textContent = d.investigating ?? '—';
+    document.getElementById('s-critical').textContent      = d.critical      ?? '—';
+    document.getElementById('s-open').textContent          = d.open          ?? '—';
+    document.getElementById('s-investigating').textContent = d.investigating  ?? '—';
   } catch {}
 }
 
 async function loadRecentIncidents() {
   const el = document.getElementById('recent-incidents');
   try {
-    const data = await api.incidents.list('?status=open&status=investigating');
-    const all  = await api.incidents.list();
+    const all = await api.incidents.list();
     const active = all.filter(i => i.status !== 'resolved').slice(0, 6);
 
     if (!active.length) {
@@ -157,7 +151,7 @@ async function loadRecentIncidents() {
         </div>
       </div>
     `).join('');
-  } catch (e) {
+  } catch {
     el.innerHTML = `<div class="empty-state"><p style="color:#dc2626">Ошибка загрузки</p></div>`;
   }
 }
@@ -185,40 +179,17 @@ async function loadNodesStatus() {
   }
 }
 
-loadAll();
-</script>
-<!-- SLA Summary on dashboard -->
-<div class="card" style="margin-top:1.25rem">
-  <div class="card-header">
-    <span class="card-title"><i class="bi bi-shield-check me-2 text-success"></i>SLA Overview (30 дней, SLO 99.9%)</span>
-    <a href="/sla" class="btn btn-ghost btn-sm">Подробнее <i class="bi bi-arrow-right"></i></a>
-  </div>
-  <div id="dash-sla">
-    <div class="loading-row" style="padding:1.5rem;text-align:center;color:#94a3b8">
-      <div class="spinner" style="margin:0 auto 8px"></div>Загрузка SLA...
-    </div>
-  </div>
-</div>
-{% endblock %}
-<script>
-// Add SLA to loadAll
-const _origLoadAll = loadAll;
-async function loadAll() {
-  await _origLoadAll();
-  loadDashSLA();
-}
-
 async function loadDashSLA() {
   const el = document.getElementById('dash-sla');
   try {
     const d = await api.get('/api/v1/analytics/sla?days=30&slo_target=99.9');
-    if (!d.nodes.length) {
+    if (!d.nodes || !d.nodes.length) {
       el.innerHTML = '<div class="empty-state" style="padding:1rem"><p>Нет данных</p></div>';
       return;
     }
     el.innerHTML = d.nodes.map(n => {
-      const color = n.meets_slo ? '#22c55e' : '#ef4444';
-      const bpct  = Math.min(100, n.error_budget_pct);
+      const color  = n.meets_slo ? '#22c55e' : '#ef4444';
+      const bpct   = Math.min(100, n.error_budget_pct);
       const bcolor = bpct < 50 ? '#22c55e' : bpct < 80 ? '#f59e0b' : '#ef4444';
       return `
       <div style="padding:.65rem 1.25rem;border-bottom:1px solid rgba(34,197,94,.07);
@@ -238,4 +209,7 @@ async function loadDashSLA() {
     }).join('');
   } catch {}
 }
+
+loadAll();
 </script>
+{% endblock %}

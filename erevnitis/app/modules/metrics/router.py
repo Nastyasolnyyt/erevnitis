@@ -134,7 +134,7 @@ while true; do
 done
 """
     return PlainTextResponse(content=script,
-        headers={{"Content-Disposition": f"attachment; filename=erevnitis_agent_{node_id}.sh"}})
+        headers={"Content-Disposition": f"attachment; filename=erevnitis_agent_{node_id}.sh"})
 
 @router.get("/node/{node_id}/export/csv")
 def export_csv(node_id: int, hours: int = Query(168), db: Session = Depends(get_db), _=Depends(require_any_auth)):
