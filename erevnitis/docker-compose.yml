@@ -1,33 +1,43 @@
-version: "3.9"
-
 services:
-  api:
+  erevnitis:
     build: .
-    container_name: erevnitis_api
+    container_name: erevnitis
     ports:
       - "8000:8000"
-    volumes:
-      - ./erevnitis.db:/app/erevnitis.db
-    environment:
-      - PYTHONUNBUFFERED=1
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    networks:
+      - monitoring
 
-  # Раскомментируй для полного стека с PostgreSQL:
-  # db:
-  #   image: postgres:16-alpine
-  #   environment:
-  #     POSTGRES_DB: erevnitis
-  #     POSTGRES_USER: erevnitis
-  #     POSTGRES_PASSWORD: secret
-  #   volumes:
-  #     - pgdata:/var/lib/postgresql/data
-  #   ports:
-  #     - "5432:5432"
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./alert_rules.yml:/etc/prometheus/alert_rules.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=30d'
+    restart: unless-stopped
+    networks:
+      - monitoring
 
-# volumes:
-#   pgdata:
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+volumes:
+  prometheus_data:
+
+networks:
+  monitoring:
+    driver: bridge

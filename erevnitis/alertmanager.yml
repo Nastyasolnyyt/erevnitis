@@ -1,0 +1,11 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: 'erevnitis'
+
+receivers:
+  - name: 'erevnitis'
+    webhook_configs:
+      - url: 'http://erevnitis:8000/api/v1/analytics/smart-alert'
+        send_resolved: true

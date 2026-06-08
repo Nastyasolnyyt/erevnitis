@@ -1,10 +1,5 @@
 """
-analytics/router.py — ИСПРАВЛЕННАЯ ВЕРСИЯ
-Баг: строка 191 — неправильный порядок операций
-БЫЛО:   (i.resolved_at or datetime.utcnow() - i.created_at).total_seconds()
-        → когда resolved_at есть, берётся datetime объект, у него нет .total_seconds()
-СТАЛО:  ((i.resolved_at or datetime.utcnow()) - i.created_at).total_seconds()
-        → всегда вычисляется разница двух datetime → timedelta → .total_seconds() работает
+analytics/router.py
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -22,10 +17,7 @@ from app.modules.metrics.models import MetricHistory
 
 router = APIRouter()
 
-
-# ══════════════════════════════════════════════════════════════
 # 1. SLA CALCULATOR
-# ══════════════════════════════════════════════════════════════
 
 @router.get("/sla/{node_id}")
 def get_node_sla(
@@ -57,7 +49,6 @@ def get_node_sla(
 
     for inc in incidents:
         start = inc.created_at
-        # ИСПРАВЛЕНО: скобки вокруг (resolved_at or utcnow()) — сначала выбираем datetime, потом вычитаем
         end = inc.resolved_at or datetime.utcnow()
         duration_min = (end - start).total_seconds() / 60
 
@@ -95,7 +86,6 @@ def get_node_sla(
 
     mid = datetime.utcnow() - timedelta(days=7)
     recent_down = sum(
-        # ИСПРАВЛЕНО: скобки здесь тоже
         ((i.resolved_at or datetime.utcnow()) - i.created_at).total_seconds() / 60
         for i in incidents if i.created_at >= mid
     )
@@ -155,7 +145,6 @@ def get_all_nodes_sla(
             Incident.created_at >= period_start,
         ).all()
 
-        # ИСПРАВЛЕНО: скобки вокруг (resolved_at or utcnow())
         downtime = sum(
             ((i.resolved_at or datetime.utcnow()) - i.created_at).total_seconds() / 60
             for i in incidents
@@ -193,10 +182,7 @@ def get_all_nodes_sla(
         },
     }
 
-
-# ══════════════════════════════════════════════════════════════
 # 2. УМНЫЕ АЛЕРТЫ С КОНТЕКСТОМ
-# ══════════════════════════════════════════════════════════════
 
 class SmartAlertPayload(BaseModel):
     alerts: list
@@ -337,7 +323,7 @@ def receive_smart_alert(
         context_parts = [base_desc, ""]
 
         if metrics_snapshot:
-            context_parts.append("📊 Состояние сервера в момент алерта:")
+            context_parts.append("Состояние сервера в момент алерта:")
             labels_ru = {
                 "cpu_usage":       "CPU",
                 "ram_utilization": "RAM",
@@ -350,7 +336,7 @@ def receive_smart_alert(
 
         if anomalies:
             context_parts.append("")
-            context_parts.append("⚡ Обнаружены аномалии (отклонение > 2σ от нормы):")
+            context_parts.append("Обнаружены аномалии (отклонение > 2σ от нормы):")
             for a in anomalies:
                 context_parts.append(f"  • {a}")
 
