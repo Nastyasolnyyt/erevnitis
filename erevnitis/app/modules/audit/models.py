@@ -13,4 +13,3 @@ class AuditLog(Base):
     details = Column(Text, nullable=True)
     ip_address = Column(String(45), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
-    # No back_populates to avoid circular import issues

@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI):
     logger.info("Erevnitis SRE Panel v3 запущен.")
     
     # ЗАПУСК ФОНОВОГО МОСТА PROMETHEUS
-    # Эта таска будет крутиться в фоне всё время, пока работает FastAPI
+    # будет крутиться в фоне всё время, пока работает FastAPI
     bridge_task = asyncio.create_task(prometheus_sync_loop(interval_seconds=15))
     
     yield  # Здесь приложение работает и обрабатывает запросы
@@ -89,13 +89,9 @@ def health():
 def system_metrics():
     return metrics.get_summary()
 
-# ---------------------------------------------------------
-# Web UI Роуты (HTML страницы)
-# ---------------------------------------------------------
 
-# Оставил только один рут для "/", который показывает Landing.
-# Если хочешь, чтобы при заходе на корень кидало сразу в панель, 
-# замени return templates... на return RedirectResponse(url="/dashboard")
+# Web UI Роуты (HTML страницы)
+
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
     return templates.TemplateResponse("landing.html", {"request": request})

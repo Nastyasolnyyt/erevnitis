@@ -8,7 +8,7 @@
     <p class="page-subtitle">Управление инцидентами инфраструктуры</p>
   </div>
   <div class="flex gap-2">
-    <a id="export-btn" href="/api/v1/incidents/export/csv" class="btn btn-ghost btn-sm">
+    <a id="export-btn" href="#" onclick="downloadIncidentsCSV()" class="btn btn-ghost btn-sm">
       <i class="bi bi-download"></i> CSV
     </a>
     <button class="btn btn-ghost btn-sm" onclick="loadIncidents()">
@@ -203,6 +203,21 @@ async function loadTable() {
     document.getElementById('inc-tbody').innerHTML =
       `<tr><td colspan="8" style="text-align:center;color:#dc2626;padding:2rem">${e.message}</td></tr>`;
   }
+}
+
+async function downloadIncidentsCSV() {
+  try {
+    const resp = await fetch('/api/v1/incidents/export/csv', {
+      headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
+    });
+    if (!resp.ok) { Toast.error('Ошибка скачивания'); return; }
+    const blob = await resp.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'incidents.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch (e) { Toast.error(e.message); }
 }
 
 async function loadNodes() {

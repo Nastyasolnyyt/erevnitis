@@ -15,4 +15,4 @@ class User(Base):
 
     assigned_incidents = relationship("Incident", back_populates="assigned_to",
                                       foreign_keys="Incident.assigned_to_id")
-    # AuditLog relationship defined after AuditLog model loaded
+
