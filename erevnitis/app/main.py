@@ -15,6 +15,8 @@ from app.modules.incidents.router import router as incidents_router
 from app.modules.metrics.router   import router as metrics_router
 from app.modules.audit.router     import router as audit_router
 from app.modules.analytics.router import router as analytics_router
+from app.modules.runbooks.router import router as runbooks_router
+from app.modules.runbooks.models import Runbook
 
 # Импортируем наш мост для Прометея
 from app.core.prometheus_bridge import prometheus_sync_loop
@@ -79,6 +81,7 @@ app.include_router(incidents_router, prefix="/api/v1/incidents", tags=["Incident
 app.include_router(metrics_router,   prefix="/api/v1/metrics",   tags=["Metrics"])
 app.include_router(audit_router,     prefix="/api/v1/audit",     tags=["Audit"])
 app.include_router(analytics_router, prefix="/api/v1/analytics", tags=["Analytics"])
+app.include_router(runbooks_router, prefix="/api/v1/runbooks", tags=["Runbooks"])
 
 # Системные эндпоинты
 @app.get("/api/v1/health")
@@ -128,3 +131,7 @@ async def audit_page(request: Request):
 @app.get("/users", response_class=HTMLResponse)
 async def users_page(request: Request):
     return templates.TemplateResponse("users.html", {"request": request})
+
+@app.get("/runbooks", response_class=HTMLResponse)
+async def runbooks_page(request: Request):
+    return templates.TemplateResponse("runbooks.html", {"request": request})

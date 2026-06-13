@@ -1,0 +1,393 @@
+{% extends "base.html" %}
+{% block title %}Runbooks — Erevnitis{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Runbooks</h1>
+    <p class="page-subtitle">Пошаговые инструкции по устранению инцидентов</p>
+  </div>
+  <button class="btn btn-primary btn-sm role-write" onclick="Modal.open('modal-create')">
+    <i class="bi bi-plus-lg"></i> Новый runbook
+  </button>
+</div>
+
+<!-- Filters -->
+<div class="card" style="margin-bottom:1.25rem">
+  <div class="card-body" style="padding:.875rem 1.25rem">
+    <div class="flex gap-3 items-center flex-wrap">
+      <div class="search-wrap">
+        <i class="bi bi-search"></i>
+        <input id="search" class="form-control search-input"
+               placeholder="Поиск по названию или алерту..." oninput="filterRunbooks()">
+      </div>
+      <div class="filter-bar">
+        <button class="filter-btn active" onclick="setFilter(this,'all')">Все</button>
+        <button class="filter-btn" onclick="setFilter(this,'critical')">Критичные</button>
+        <button class="filter-btn" onclick="setFilter(this,'high')">Высокие</button>
+        <button class="filter-btn" onclick="setFilter(this,'medium')">Средние</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Runbooks grid -->
+<div id="runbooks-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1.25rem">
+  <div style="grid-column:1/-1;text-align:center;padding:2rem;color:#94a3b8">
+    <div class="spinner" style="margin:0 auto 8px"></div> Загрузка...
+  </div>
+</div>
+
+<!-- Modal: View runbook -->
+<div class="modal-overlay" id="modal-view">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <div>
+        <h3 class="modal-title" id="view-title">—</h3>
+        <div id="view-meta" style="font-size:.8rem;color:#64748b;margin-top:3px"></div>
+      </div>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="Modal.close('modal-view')">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p id="view-desc" style="color:#475569;font-size:.875rem;margin-bottom:1.25rem;line-height:1.7"></p>
+      <div id="view-steps"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm role-write" id="btn-edit-view" onclick="openEditFromView()">
+        <i class="bi bi-pencil"></i> Редактировать
+      </button>
+      <button class="btn btn-ghost" onclick="Modal.close('modal-view')">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Create -->
+<div class="modal-overlay" id="modal-create">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header">
+      <h3 class="modal-title">Новый runbook</h3>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="Modal.close('modal-create')">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Название *</label>
+        <input id="c-title" class="form-control" placeholder="Высокая загрузка CPU">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <div class="form-group">
+          <label class="form-label">Имя алерта Prometheus</label>
+          <input id="c-alert" class="form-control" placeholder="HighCPU">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Критичность</label>
+          <select id="c-severity" class="form-control">
+            <option value="critical">Критичный</option>
+            <option value="high">Высокий</option>
+            <option value="medium" selected>Средний</option>
+            <option value="low">Низкий</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Описание проблемы</label>
+        <textarea id="c-desc" class="form-control" rows="2"
+                  placeholder="Кратко опиши когда применяется этот runbook"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Шаги *</label>
+        <div id="steps-container"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:.5rem" onclick="addStep()">
+          <i class="bi bi-plus-lg"></i> Добавить шаг
+        </button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="Modal.close('modal-create')">Отмена</button>
+      <button class="btn btn-primary" onclick="createRunbook()">
+        <i class="bi bi-check-lg"></i> Сохранить
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Edit -->
+<div class="modal-overlay" id="modal-edit">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header">
+      <h3 class="modal-title">Редактировать runbook</h3>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="Modal.close('modal-edit')">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="e-id">
+      <div class="form-group">
+        <label class="form-label">Название *</label>
+        <input id="e-title" class="form-control">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <div class="form-group">
+          <label class="form-label">Имя алерта Prometheus</label>
+          <input id="e-alert" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Критичность</label>
+          <select id="e-severity" class="form-control">
+            <option value="critical">Критичный</option>
+            <option value="high">Высокий</option>
+            <option value="medium">Средний</option>
+            <option value="low">Низкий</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Описание</label>
+        <textarea id="e-desc" class="form-control" rows="2"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Шаги *</label>
+        <div id="edit-steps-container"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:.5rem" onclick="addEditStep()">
+          <i class="bi bi-plus-lg"></i> Добавить шаг
+        </button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm role-admin" onclick="deleteRunbook()">
+        <i class="bi bi-trash"></i> Удалить
+      </button>
+      <button class="btn btn-ghost" onclick="Modal.close('modal-edit')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveEdit()">
+        <i class="bi bi-check-lg"></i> Сохранить
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+Auth.requireAuth();
+
+let allRunbooks = [];
+let currentFilter = 'all';
+let currentViewId = null;
+
+const SEV_COLORS = {
+  critical: 'badge-critical', high: 'badge-high',
+  medium: 'badge-medium',     low: 'badge-low'
+};
+const SEV_LABELS = {
+  critical: 'Критичный', high: 'Высокий', medium: 'Средний', low: 'Низкий'
+};
+
+async function loadRunbooks() {
+  try {
+    const resp = await fetch('/api/v1/runbooks/', {
+      headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
+    });
+    allRunbooks = await resp.json();
+    render(allRunbooks);
+  } catch (e) {
+    document.getElementById('runbooks-grid').innerHTML =
+      `<div style="color:#dc2626;padding:2rem">${e.message}</div>`;
+  }
+}
+
+function render(books) {
+  const grid = document.getElementById('runbooks-grid');
+  if (!books.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1" class="empty-state">
+      <i class="bi bi-journal-x"></i><h3>Runbook-ов нет</h3>
+      <p>Создайте первый runbook</p></div>`;
+    return;
+  }
+  grid.innerHTML = books.map(b => `
+    <div class="card" style="padding:0;cursor:pointer" onclick="viewRunbook(${b.id})">
+      <div style="padding:1.25rem 1.5rem;border-bottom:1px solid var(--border-color)">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem">
+          <div style="font-size:1rem;font-weight:700;color:var(--text-primary);line-height:1.3">${b.title}</div>
+          <span class="badge ${SEV_COLORS[b.severity]}" style="flex-shrink:0">${SEV_LABELS[b.severity]}</span>
+        </div>
+        ${b.alert_name ? `<div style="margin-top:.4rem">
+          <span style="font-family:var(--font-mono);font-size:.75rem;background:rgba(34,197,94,.1);
+                       color:#15803d;padding:2px 8px;border-radius:6px">${b.alert_name}</span>
+        </div>` : ''}
+      </div>
+      <div style="padding:1rem 1.5rem">
+        ${b.description ? `<p style="font-size:.8125rem;color:#64748b;line-height:1.6;margin-bottom:.75rem;
+          display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${b.description}</p>` : ''}
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:.78rem;color:#94a3b8">
+            <i class="bi bi-list-ol me-1"></i>${b.steps.length} шагов
+          </span>
+          <span style="font-size:.78rem;color:#94a3b8">${fmt.reltime(b.created_at)}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function setFilter(btn, f) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentFilter = f;
+  filterRunbooks();
+}
+
+function filterRunbooks() {
+  const q = document.getElementById('search').value.toLowerCase();
+  let filtered = allRunbooks;
+  if (currentFilter !== 'all') filtered = filtered.filter(b => b.severity === currentFilter);
+  if (q) filtered = filtered.filter(b =>
+    b.title.toLowerCase().includes(q) ||
+    (b.alert_name || '').toLowerCase().includes(q) ||
+    (b.description || '').toLowerCase().includes(q)
+  );
+  render(filtered);
+}
+
+function viewRunbook(id) {
+  const b = allRunbooks.find(x => x.id === id);
+  if (!b) return;
+  currentViewId = id;
+  document.getElementById('view-title').textContent = b.title;
+  document.getElementById('view-meta').innerHTML =
+    `<span class="badge ${SEV_COLORS[b.severity]}">${SEV_LABELS[b.severity]}</span>` +
+    (b.alert_name ? ` &nbsp;<span style="font-family:var(--font-mono);font-size:.75rem;
+      background:rgba(34,197,94,.1);color:#15803d;padding:2px 8px;border-radius:6px">${b.alert_name}</span>` : '');
+  document.getElementById('view-desc').textContent = b.description || '';
+
+  document.getElementById('view-steps').innerHTML = b.steps.map(s => `
+    <div style="display:flex;gap:.875rem;padding:.625rem 0;border-bottom:1px solid rgba(34,197,94,.07)">
+      <div style="width:26px;height:26px;border-radius:50%;background:rgba(34,197,94,.15);
+                  color:#15803d;font-size:.75rem;font-weight:700;display:flex;align-items:center;
+                  justify-content:center;flex-shrink:0;margin-top:1px">${s.step}</div>
+      <div style="font-size:.875rem;color:var(--text-primary);line-height:1.6;padding-top:3px">${s.action}</div>
+    </div>
+  `).join('');
+
+  Modal.open('modal-view');
+}
+
+function openEditFromView() {
+  const b = allRunbooks.find(x => x.id === currentViewId);
+  if (!b) return;
+  Modal.close('modal-view');
+  openEdit(b);
+}
+
+// ── Create ──
+let stepCount = 0;
+function addStep(container='steps-container', text='') {
+  stepCount++;
+  const div = document.createElement('div');
+  div.style = 'display:flex;gap:.5rem;margin-bottom:.5rem;align-items:center';
+  div.innerHTML = `
+    <span style="width:24px;height:24px;border-radius:50%;background:rgba(34,197,94,.15);
+                 color:#15803d;font-size:.72rem;font-weight:700;display:flex;align-items:center;
+                 justify-content:center;flex-shrink:0">${document.getElementById(container).children.length + 1}</span>
+    <input class="form-control step-input" value="${text}" placeholder="Опиши действие...">
+    <button class="btn btn-ghost btn-icon btn-sm" onclick="this.parentElement.remove()" title="Удалить">
+      <i class="bi bi-x" style="color:#dc2626"></i>
+    </button>`;
+  document.getElementById(container).appendChild(div);
+}
+
+function addEditStep() { addStep('edit-steps-container'); }
+
+function getSteps(containerId) {
+  return Array.from(document.getElementById(containerId).querySelectorAll('.step-input'))
+    .map((el, i) => ({ step: i + 1, action: el.value.trim() }))
+    .filter(s => s.action);
+}
+
+async function createRunbook() {
+  const title = document.getElementById('c-title').value.trim();
+  const steps = getSteps('steps-container');
+  if (!title) { Toast.error('Введите название'); return; }
+  if (!steps.length) { Toast.error('Добавьте хотя бы один шаг'); return; }
+
+  try {
+    const resp = await fetch('/api/v1/runbooks/', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${Auth.getToken()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        alert_name: document.getElementById('c-alert').value.trim() || null,
+        severity:   document.getElementById('c-severity').value,
+        description: document.getElementById('c-desc').value.trim() || null,
+        steps,
+      })
+    });
+    if (!resp.ok) { const e = await resp.json(); Toast.error(e.detail); return; }
+    Modal.close('modal-create');
+    Toast.success('Runbook создан');
+    document.getElementById('c-title').value = '';
+    document.getElementById('c-alert').value = '';
+    document.getElementById('c-desc').value  = '';
+    document.getElementById('steps-container').innerHTML = '';
+    loadRunbooks();
+  } catch (e) { Toast.error(e.message); }
+}
+
+// ── Edit ──
+function openEdit(b) {
+  document.getElementById('e-id').value       = b.id;
+  document.getElementById('e-title').value    = b.title;
+  document.getElementById('e-alert').value    = b.alert_name || '';
+  document.getElementById('e-severity').value = b.severity;
+  document.getElementById('e-desc').value     = b.description || '';
+  const cont = document.getElementById('edit-steps-container');
+  cont.innerHTML = '';
+  b.steps.forEach(s => addStep('edit-steps-container', s.action));
+  Modal.open('modal-edit');
+}
+
+async function saveEdit() {
+  const id    = document.getElementById('e-id').value;
+  const steps = getSteps('edit-steps-container');
+  if (!steps.length) { Toast.error('Добавьте хотя бы один шаг'); return; }
+
+  try {
+    const resp = await fetch(`/api/v1/runbooks/${id}`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${Auth.getToken()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title:       document.getElementById('e-title').value.trim(),
+        alert_name:  document.getElementById('e-alert').value.trim() || null,
+        severity:    document.getElementById('e-severity').value,
+        description: document.getElementById('e-desc').value.trim() || null,
+        steps,
+      })
+    });
+    if (!resp.ok) { const e = await resp.json(); Toast.error(e.detail); return; }
+    Modal.close('modal-edit');
+    Toast.success('Runbook обновлён');
+    loadRunbooks();
+  } catch (e) { Toast.error(e.message); }
+}
+
+async function deleteRunbook() {
+  const id = document.getElementById('e-id').value;
+  if (!confirm('Удалить этот runbook?')) return;
+  try {
+    await fetch(`/api/v1/runbooks/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
+    });
+    Modal.close('modal-edit');
+    Toast.success('Runbook удалён');
+    loadRunbooks();
+  } catch (e) { Toast.error(e.message); }
+}
+
+// Начальные шаги для формы создания
+addStep();
+loadRunbooks();
+</script>
+{% endblock %}

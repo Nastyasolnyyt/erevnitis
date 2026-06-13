@@ -1,6 +1,9 @@
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import random, math
+from app.modules.runbooks.models import Runbook
+import json
+
 
 def seed_database(db: Session):
     # Import here to ensure all models registered
@@ -111,3 +114,69 @@ def seed_database(db: Session):
     ]: db.add(e)
     db.commit()
     print(f"✅ Seed complete: {len(bulk)} metric points")
+
+    if db.query(Runbook).count() == 0:
+        examples = [
+            {
+                "title": "Высокая загрузка CPU",
+                "alert_name": "HighCPU",
+                "severity": "high",
+                "description": "CPU превышает 80% на протяжении нескольких минут.",
+                "steps": [
+                    {"step": 1, "action": "Подключись к серверу: ssh deploy@<IP>"},
+                    {"step": 2, "action": "Найди процессы с высокой нагрузкой: top -bn1 | head -20"},
+                    {"step": 3, "action": "Найди PID виновника: ps aux --sort=-%cpu | head -10"},
+                    {"step": 4, "action": "Проверь логи: journalctl -u <service> -n 100"},
+                    {"step": 5, "action": "Перезапусти сервис: systemctl restart <service>"},
+                    {"step": 6, "action": "Обнови статус инцидента на resolved"},
+                ]
+            },
+            {
+                "title": "Сервер недоступен",
+                "alert_name": "InstanceDown",
+                "severity": "critical",
+                "description": "node_exporter не отвечает — сервер выключен или потерял сеть.",
+                "steps": [
+                    {"step": 1, "action": "Проверь доступность: ping <IP>"},
+                    {"step": 2, "action": "Проверь панель управления VPS на наличие аварий"},
+                    {"step": 3, "action": "Перезагрузи через панель хостинга (Hard Reboot)"},
+                    {"step": 4, "action": "Проверь упавшие сервисы: systemctl list-units --failed"},
+                    {"step": 5, "action": "Запусти упавшие: systemctl start <service>"},
+                    {"step": 6, "action": "Зафиксируй причину и закрой инцидент"},
+                ]
+            },
+            {
+                "title": "Диск почти заполнен",
+                "alert_name": "DiskAlmostFull",
+                "severity": "high",
+                "description": "Свободного места менее 15%. При 0% сервер перестанет работать.",
+                "steps": [
+                    {"step": 1, "action": "Посмотри что занимает место: du -sh /* 2>/dev/null | sort -rh | head -15"},
+                    {"step": 2, "action": "Очисти логи: journalctl --vacuum-size=200M"},
+                    {"step": 3, "action": "Удали старые Docker-образы: docker system prune -af"},
+                    {"step": 4, "action": "Найди большие файлы: find / -size +100M -type f 2>/dev/null"},
+                    {"step": 5, "action": "Если не хватает — увеличь диск через панель хостинга"},
+                ]
+            },
+            {
+                "title": "Высокое потребление RAM",
+                "alert_name": "HighRAM",
+                "severity": "medium",
+                "description": "RAM занята более 90%. Сервер может начать использовать swap.",
+                "steps": [
+                    {"step": 1, "action": "Проверь состояние: free -h"},
+                    {"step": 2, "action": "Найди процессы: ps aux --sort=-%mem | head -10"},
+                    {"step": 3, "action": "Перезапусти сервис если память растёт: systemctl restart <service>"},
+                    {"step": 4, "action": "Если swap активен — срочно освободи RAM"},
+                ]
+            },
+        ]
+        for ex in examples:
+            db.add(Runbook(
+                title=ex["title"],
+                alert_name=ex["alert_name"],
+                severity=ex["severity"],
+                description=ex["description"],
+                steps=json.dumps(ex["steps"], ensure_ascii=False),
+            ))
+        db.commit()
