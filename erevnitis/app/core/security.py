@@ -90,4 +90,4 @@ def require_role(*allowed_roles: str):
 # Удобные готовые зависимости (DRY)
 require_admin = require_role("admin")
 require_sre_or_admin = require_role("admin", "sre")
-require_any_auth = require_role("admin", "sre", "viewer")
+require_any_auth = require_role("admin", "sre", "analyst", "viewer")
