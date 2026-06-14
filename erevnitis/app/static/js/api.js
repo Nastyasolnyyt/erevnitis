@@ -270,10 +270,16 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
   }
 
-  // Hide create/edit buttons for viewers
+  // Скрываем кнопки по ролям
+  // viewer — только чтение, нет кнопок создания/редактирования
   if (role === 'viewer') {
     document.querySelectorAll('.role-write').forEach(el => el.style.display = 'none');
   }
+  // analyst — только чтение + экспорт, нет кнопок создания/редактирования
+  if (role === 'analyst') {
+    document.querySelectorAll('.role-write').forEach(el => el.style.display = 'none');
+  }
+  // не admin — нет кнопок удаления и управления пользователями
   if (role !== 'admin') {
     document.querySelectorAll('.role-admin').forEach(el => el.style.display = 'none');
   }

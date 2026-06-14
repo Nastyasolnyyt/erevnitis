@@ -15,7 +15,7 @@ from app.modules.runbooks.models import Runbook
 router = APIRouter()
 
 
-# ── Pydantic схемы ────────────────────────────────────────────
+# Pydantic схемы 
 class RunbookCreate(BaseModel):
     title:       str
     alert_name:  Optional[str] = None
@@ -60,7 +60,7 @@ class RunbookResponse(BaseModel):
         return cls(**data)
 
 
-# ── Эндпоинты ─────────────────────────────────────────────────
+# ── Эндпоинты 
 
 @router.get("/", response_model=list[RunbookResponse])
 def list_runbooks(

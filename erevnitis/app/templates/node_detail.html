@@ -250,7 +250,22 @@ async function loadNodeInfo() {
     document.getElementById('n-purpose').textContent     = n.purpose  || '—';
     document.getElementById('n-lastseen').textContent    = fmt.reltime(n.last_seen);
 
-    document.getElementById('export-metrics').href = api.metrics.exportCSV(NODE_ID);
+    // CSV качаем через fetch с токеном — иначе 401
+    document.getElementById('export-metrics').onclick = async (e) => {
+      e.preventDefault();
+      try {
+        const resp = await fetch(api.metrics.exportCSV(NODE_ID), {
+          headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
+        });
+        if (!resp.ok) { Toast.error('Ошибка скачивания CSV'); return; }
+        const blob = await resp.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `metrics_node_${NODE_ID}.csv`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      } catch (e) { Toast.error(e.message); }
+    };
     document.getElementById('agent-link').href     = api.nodes.agentScript(NODE_ID);
   } catch (e) {
     Toast.error('Ошибка загрузки сервера: ' + e.message);

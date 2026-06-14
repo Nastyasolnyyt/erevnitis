@@ -39,7 +39,6 @@ PROM_QUERIES = {
         'rate(node_network_transmit_bytes_total{{job="{job}",device=~"eth0|ens.*|enp.*|wlan0"}}[1m])'
         ' / 1048576'
     ),
-    # ИСПРАВЛЕНО: были неправильные скобки — (A - B / C) вместо (A - B) / C
     "uptime_hours": (
         '(node_time_seconds{{job="{job}"}} - node_boot_time_seconds{{job="{job}"}}) / 3600'
     ),
