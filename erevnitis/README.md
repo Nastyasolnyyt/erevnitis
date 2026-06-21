@@ -77,7 +77,7 @@ docker-compose up --build
 
 ---
 
-## Запуск тестов (ЛР3)
+## Запуск тестов
 
 ```bash
 # Все тесты (66 штук)
@@ -140,7 +140,7 @@ POST   /api/v1/incidents/webhook/alertmanager - Webhook от Prometheus
 GET    /api/v1/incidents/stats/summary        - Статистика
 ```
 
-### Наблюдаемость (ЛР3)
+### Наблюдаемость 
 ```
 GET    /api/v1/health    - Статус приложения
 GET    /api/v1/metrics   - Метрики: RPS, latency, top endpoints
@@ -148,36 +148,4 @@ GET    /api/v1/metrics   - Метрики: RPS, latency, top endpoints
 
 ---
 
-## Пример использования (curl)
-
-```bash
-# Шаг 1: Получить токен
-TOKEN=$(curl -s -X POST "http://localhost:8000/api/v1/auth/token" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=admin&password=admin123" | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
-
-# Шаг 2: Создать узел
-curl -X POST "http://localhost:8000/api/v1/nodes/" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"hostname":"prod-new-01","ip_address":"10.0.5.1","os_type":"linux","location":"DC-1"}'
-
-# Шаг 3: Создать инцидент
-curl -X POST "http://localhost:8000/api/v1/incidents/" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"title":"CPU spike","severity":"critical","node_id":1}'
-
-# Шаг 4: Обновить статус инцидента
-curl -X PATCH "http://localhost:8000/api/v1/incidents/1" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"status":"resolved"}'
-
-# Шаг 5: Метрики
-curl "http://localhost:8000/api/v1/metrics" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
----
 
