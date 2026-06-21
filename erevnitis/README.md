@@ -181,27 +181,3 @@ curl "http://localhost:8000/api/v1/metrics" \
 
 ---
 
-## Соответствие лабораторным работам
-
-### ЛР1 — Проектирование архитектуры
-- ✅ Модульный монолит (FastAPI + SQLAlchemy)
-- ✅ 3 уровня: Auth / Nodes / Incidents
-- ✅ ER-диаграмма: Users ↔ Incidents ↔ Nodes
-- ✅ RBAC: admin / sre / viewer
-- ✅ Принципы SOLID, DRY, KISS
-
-### ЛР2 — Прототип и интеграция
-- ✅ REST API со всеми CRUD операциями
-- ✅ JWT аутентификация (OAuth2 Bearer)
-- ✅ bcrypt хеширование паролей
-- ✅ SQLite (демо) / PostgreSQL-совместимо
-- ✅ Seed с тестовыми данными
-- ✅ Webhook от Prometheus Alertmanager
-
-### ЛР3 — Тестирование и наблюдаемость
-- ✅ 13 модульных тестов (pytest)
-- ✅ 53 интеграционных теста
-- ✅ 66/66 PASSED
-- ✅ Структурированные логи (INFO/WARNING/ERROR)
-- ✅ Метрики: avg/p95 latency, error rate, top endpoints
-- ✅ GET /api/v1/metrics эндпоинт
